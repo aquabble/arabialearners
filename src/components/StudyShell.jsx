@@ -1,0 +1,41 @@
+import Header from './ui/Header.jsx';
+import { Tabs } from './ui/Tabs.jsx';
+import { Card, CardBody, CardTitle, CardSub } from './ui/Card.jsx';
+
+export default function StudyShell({ user, mode, setMode, children }){
+  const items = [
+    {label:'Home', value:'home'},
+    {label:'Translate', value:'translate'},
+    {label:'Word Order', value:'word-order'},
+    {label:'Drills', value:'drills'},
+    {label:'Grammar', value:'grammar'}
+  ];
+  return (
+    <div>
+      <Header user={user} right={<div className="badge ok">Beta</div>} />
+      <div className="container">
+        <div className="hero">
+          <h1>Keep your streak. Learn smarter.</h1>
+          <p>Daily Arabic practice with spaced repetition, clean UI, and instant feedback.</p>
+          <div className="mt-16">
+            <Tabs value={mode} onChange={setMode} items={items} />
+          </div>
+        </div>
+        <div className="mt-16 grid cols-3">
+          <Card><CardBody><CardTitle>Today</CardTitle><CardSub>Your plan</CardSub>
+            <div className="small">10 translations • 6 word-order cards • 1 grammar path</div>
+          </CardBody></Card>
+          <Card><CardBody><CardTitle>Mastery</CardTitle><CardSub>Progress</CardSub>
+            <div className="small">Coverage up 12% this week. Keep going!</div>
+          </CardBody></Card>
+          <Card><CardBody><CardTitle>Streak</CardTitle><CardSub>🔥 6 days</CardSub>
+            <div className="small">Two more for a new badge.</div>
+          </CardBody></Card>
+        </div>
+        <div className="mt-16">
+          {children}
+        </div>
+      </div>
+    </div>
+  )
+}
