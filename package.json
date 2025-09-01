@@ -1,0 +1,33 @@
+{
+  "name": "arabic-study-combined",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "cross-env NODE_ENV=production vite build",
+    "preview": "vite preview",
+    "lint": "eslint src --ext .js,.jsx",
+    "test": "vitest"
+  },
+  "dependencies": {
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "@react-oauth/google": "^0.12.1",
+    "firebase": "^10.13.1"
+  },
+  "devDependencies": {
+    "vite": "^5.0.0",
+    "@vitejs/plugin-react": "^4.0.0",
+    "@types/react": "^18.2.0",
+    "@types/react-dom": "^18.2.0",
+    "eslint": "^8.57.0",
+    "eslint-plugin-react": "^7.34.0",
+    "eslint-plugin-react-hooks": "^4.6.0",
+    "prettier": "^3.3.3",
+    "cross-env": "^7.0.3",
+    "firebase-tools": "^13.0.0",
+    "vitest": "^2.0.0",
+    "@testing-library/react": "^16.0.0"
+  }
+}
