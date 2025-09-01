@@ -1,17 +1,24 @@
+
 import { useEffect, useState } from 'react'
 import { Card, CardBody, CardTitle, CardSub } from './ui/Card.jsx'
 import Button from './ui/Button.jsx'
 import Input from './ui/Input.jsx'
 
-function normalize(s=''){
+function normAr(s=''){
   return s.normalize('NFKC')
     .replace(/[\u064B-\u0652]/g,'') // strip diacritics
     .replace(/\s+/g,' ')
     .trim()
 }
+function normEn(s=''){
+  return s.normalize('NFKC').toLowerCase().replace(/\s+/g,' ').trim()
+}
 
-export default function TranslateGame({ showDiacritics=true, user }){
-  const [stage, setStage] = useState('SVO')
+export default function TranslateGame({ user }){
+  const [stage, setStage] = useState('SVO')         // SV | SVO | SVO+Time
+  const [unit, setUnit] = useState('All')           // if you implemented unit filter
+  const [direction, setDirection] = useState('ar2en') // 'ar2en' (default) or 'en2ar'
+
   const [loading, setLoading] = useState(true)
   const [err, setErr] = useState(null)
 
@@ -28,7 +35,7 @@ export default function TranslateGame({ showDiacritics=true, user }){
       const res = await fetch('/api/sentence', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ stage }) // server picks focus words from semester1.json
+        body: JSON.stringify({ stage, unit })
       })
       const data = await res.json()
       if(data.error) throw new Error(data.error)
@@ -41,17 +48,20 @@ export default function TranslateGame({ showDiacritics=true, user }){
     }
   }
 
-  useEffect(()=>{ loadSentence() }, [stage])
+  useEffect(()=>{ loadSentence() }, [stage, unit])
 
   async function check(){
-    const fastMatch = normalize(guess) === normalize(ar)
-    if(fastMatch){ setFeedback({ verdict:'correct', hint:'✅ Perfect match' }); return; }
-
+    setFeedback(null)
     try{
       const res = await fetch('/api/grade', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ guess, referenceAr: ar, referenceEn: en })
+        body: JSON.stringify({
+          direction,
+          guess,
+          referenceAr: ar,
+          referenceEn: en
+        })
       })
       const data = await res.json()
       setFeedback(data)
@@ -60,27 +70,41 @@ export default function TranslateGame({ showDiacritics=true, user }){
     }
   }
 
+  const prompt = direction === 'ar2en' ? ar : en
+  const placeholder = direction === 'ar2en' ? 'Type the English meaning…' : 'اكتب الجواب بالعربية…'
+
   return (
     <Card>
       <CardBody>
         <CardTitle>Translate</CardTitle>
-        <CardSub>AI-driven using Semester 1 vocabulary</CardSub>
+        <CardSub>AI‑generated sentences • AI grading with hints</CardSub>
 
-        <div className="small mb-16">
-          Stage:&nbsp;
-          <select className="input" style={{width:180, display:'inline-block'}} value={stage} onChange={e=>setStage(e.target.value)}>
-            <option value="SV">SV</option>
-            <option value="SVO">SVO</option>
-            <option value="SVO+Time">SVO+Time</option>
-          </select>
+        <div className="small mb-16" style={{display:'flex', gap:12, flexWrap:'wrap'}}>
+          <div>
+            Stage:&nbsp;
+            <select className="input" style={{width:180, display:'inline-block'}} value={stage} onChange={e=>setStage(e.target.value)}>
+              <option value="SV">SV</option>
+              <option value="SVO">SVO</option>
+              <option value="SVO+Time">SVO+Time</option>
+            </select>
+          </div>
+          <div>
+            Direction:&nbsp;
+            <select className="input" style={{width:180, display:'inline-block'}} value={direction} onChange={e=>setDirection(e.target.value)}>
+              <option value="ar2en">Arabic → English</option>
+              <option value="en2ar">English → Arabic</option>
+            </select>
+          </div>
         </div>
 
         {loading ? (
-          <div className="small">Generating from Semester 1 vocab…</div>
+          <div className="small">Generating…</div>
         ) : (
           <>
-            <div className="title mb-16">English: {en}</div>
-            <Input placeholder="اكتب الجواب هنا…" value={guess} onChange={e=>setGuess(e.target.value)} />
+            <div className="title mb-16">
+              {direction === 'ar2en' ? <>Arabic:&nbsp;<span>{prompt}</span></> : <>English:&nbsp;<span>{prompt}</span></>}
+            </div>
+            <Input placeholder={placeholder} value={guess} onChange={e=>setGuess(e.target.value)} />
             <div className="mt-16 flex items-center gap-16">
               <Button variant="brand" onClick={check}>Check</Button>
               <Button className="ghost" onClick={loadSentence}>Next</Button>
@@ -91,7 +115,12 @@ export default function TranslateGame({ showDiacritics=true, user }){
               )}
             </div>
             {feedback && feedback.hint && <div className="small mt-16">{feedback.hint}</div>}
-            <div className="small mt-16">Reference (tap to reveal): <details><summary>Show Arabic</summary><div style={{marginTop:8}}>{ar}</div></details></div>
+            <div className="small mt-16">Reference (tap to reveal):
+              <details><summary>Show both</summary>
+                <div style={{marginTop:8}}><strong>Arabic:</strong> {ar}</div>
+                <div><strong>English:</strong> {en}</div>
+              </details>
+            </div>
           </>
         )}
 
