@@ -1,8 +1,8 @@
-
 import { useEffect, useState } from 'react'
 import { Card, CardBody, CardTitle, CardSub } from './ui/Card.jsx'
 import Button from './ui/Button.jsx'
 import Input from './ui/Input.jsx'
+import { API_BASE } from '../lib/apiBase.js'
 
 function normAr(s=''){
   return s.normalize('NFKC')
@@ -32,11 +32,15 @@ export default function TranslateGame({ user }){
   async function loadSentence(){
     setLoading(true); setErr(null); setFeedback(null); setGuess('')
     try{
-      const res = await fetch('/api/sentence', {
+      const res = await fetch(`${API_BASE}/api/sentence`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ stage, unit })
       })
+      if (!res.ok) {
+        const text = await res.text();
+        throw new Error(`sentence ${res.status}: ${text}`);
+      }
       const data = await res.json()
       if(data.error) throw new Error(data.error)
       setAr(data.ar); setEn(data.en); setTokens(data.tokens || [])
@@ -53,7 +57,7 @@ export default function TranslateGame({ user }){
   async function check(){
     setFeedback(null)
     try{
-      const res = await fetch('/api/grade', {
+      const res = await fetch(`${API_BASE}/api/grade`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -63,10 +67,14 @@ export default function TranslateGame({ user }){
           referenceEn: en
         })
       })
+      if (!res.ok) {
+        const text = await res.text();
+        throw new Error(`grade ${res.status}: ${text}`);
+      }
       const data = await res.json()
       setFeedback(data)
     }catch(e){
-      setFeedback({ verdict:'wrong', hint:'Could not reach grader. Try again.' })
+      setFeedback({ verdict:'wrong', hint:'Could not reach grader. ' + String(e) })
     }
   }
 
