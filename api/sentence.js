@@ -1,108 +1,88 @@
 import OpenAI from "openai";
 
 export const config = { runtime: "edge" };
-
 const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
-async function loadSemesterVocab(req) {
-  // Try to load /semester1.json from the app's public assets.
-  // You should place your real Semester 1 vocab file at /public/semester1.json
-  // The code supports several common shapes.
-  const url = new URL("/semester1.json", req.url);
-  const res = await fetch(url.toString(), { cache: "no-store" });
-  if (!res.ok) {
-    throw new Error(`Could not load semester1.json at ${url}`);
+// --- LOAD VOCAB FROM STATIC FILE ---
+async function loadSemester(req) {
+  const host = req.headers.get("host");
+  const urls = [
+    `https://${host}/semester1.json`,
+    `https://${host}/data/semester1.json`
+  ];
+  for (const url of urls) {
+    const res = await fetch(url, { cache: "no-store" });
+    if (res.ok) return await res.json();
   }
-  const data = await res.json();
-  return data;
+  throw new Response(JSON.stringify({ error: "semester1.json not found in known paths", tried: urls }), { status: 400 });
 }
 
-// Normalize varied vocab file shapes into a flat [{ar, en, pos}] list.
+// --- FLATTEN THE USER'S SCHEMA ---
+// Expected shape (simplified):
+// { semester: 1, units: [ { unit: { id, name, chapters: [ { id, name, vocab: [ { ar, en }, ... ] } ] } }, ... ] }
 function normalizeVocab(raw) {
   const out = [];
-  const push = (ar, en, pos) => {
-    if (!ar) return;
-    const arStr = String(ar).trim();
-    if (!arStr) return;
-    out.push({ ar: arStr, en: en ? String(en).trim() : "", pos: pos ? String(pos).trim().toLowerCase() : "" });
-  };
-
-  if (Array.isArray(raw)) {
-    for (const item of raw) {
-      if (typeof item === "string") push(item, "", "");
-      else if (item && typeof item === "object") {
-        push(item.ar || item.arabic || item.word || item.term, item.en || item.english || item.gloss, item.pos || item.tag || "");
+  const units = Array.isArray(raw?.units) ? raw.units : [];
+  for (const u of units) {
+    const U = u?.unit;
+    if (!U) continue;
+    const unitName = (U.name || U.id || "Unit").toString();
+    const chapters = Array.isArray(U.chapters) ? U.chapters : [];
+    for (const ch of chapters) {
+      const chapterName = (ch?.name || ch?.id || "").toString() || null;
+      const vocab = Array.isArray(ch?.vocab) ? ch.vocab : [];
+      for (const item of vocab) {
+        const ar = (item && (item.ar || item.arabic || item.word)) || "";
+        const en = (item && (item.en || item.english || item.translation || item.gloss)) || "";
+        const AR = String(ar).trim();
+        if (!AR) continue;
+        out.push({
+          ar: AR,
+          en: String(en || "").trim(),
+          pos: "",                 // no POS field in this schema
+          unit: unitName,
+          chapter: chapterName,
+        });
       }
     }
-    return out;
   }
-
-  if (raw && typeof raw === "object") {
-    for (const k of Object.keys(raw)) {
-      const v = raw[k];
-      if (Array.isArray(v)) {
-        for (const item of v) {
-          if (typeof item === "string") push(item, "", k);
-          else if (item && typeof item === "object") {
-            push(item.ar || item.arabic || item.word || item.term, item.en || item.english || item.gloss, item.pos || item.tag || k);
-          }
-        }
-      } else if (v && typeof v === "object") {
-        // nested units: { unit1: { nouns:[...], verbs:[...] } }
-        for (const kk of Object.keys(v)) {
-          const arr = v[kk];
-          if (Array.isArray(arr)) {
-            for (const item of arr) {
-              if (typeof item === "string") push(item, "", kk);
-              else if (item && typeof item === "object") {
-                push(item.ar || item.arabic || item.word || item.term, item.en || item.english || item.gloss, item.pos || item.tag || kk);
-              }
-            }
-          }
-        }
-      }
-    }
-    return out;
-  }
-
   return out;
 }
 
+// --- PICK 1-3 FOCUS WORDS ---
 function pickFocusWords(vocab) {
   if (!vocab.length) return [];
-  // Prefer one verb + one noun if we can, else up to 2-3 random content words.
-  const nouns = vocab.filter(v => /noun|اسم/i.test(v.pos) || (!v.pos && v.en && !/^(to\s)/i.test(v.en)));
-  const verbs = vocab.filter(v => /verb|فعل/i.test(v.pos) || (v.en && /^to\s/i.test(v.en)));
-  const adjs  = vocab.filter(v => /adj|صفة/i.test(v.pos));
-
-  const picks = [];
-  if (verbs.length) picks.push(verbs[Math.floor(Math.random()*verbs.length)].ar);
-  if (nouns.length) picks.push(nouns[Math.floor(Math.random()*nouns.length)].ar);
-  if (picks.length < 2 && adjs.length) picks.push(adjs[Math.floor(Math.random()*adjs.length)].ar);
-
-  // Fallback randoms to reach 2 words
-  while (picks.length < 2 && picks.length < vocab.length) {
-    const rnd = vocab[Math.floor(Math.random()*vocab.length)].ar;
-    if (!picks.includes(rnd)) picks.push(rnd);
+  const picks = new Set();
+  while (picks.size < Math.min(3, vocab.length)) {
+    const rnd = vocab[Math.floor(Math.random() * vocab.length)].ar;
+    picks.add(rnd);
+    if (picks.size >= 2) break;
   }
-
-  // Cap at 3 to keep sentences short
-  return picks.slice(0, 3);
+  return Array.from(picks);
 }
 
 export default async function handler(req) {
   try {
-    const body = await req.json().catch(() => ({}));
-    const { stage = "SVO", unit = null } = body;
-
-    const raw = await loadSemesterVocab(req);
-    const vocab = normalizeVocab(raw);
-    if (!vocab.length) {
-      throw new Error("semester1.json loaded but had no usable entries");
+    if (!process.env.OPENAI_API_KEY) {
+      return new Response(JSON.stringify({ error: "OPENAI_API_KEY not set" }), { status: 400 });
     }
 
-    // TODO: if your JSON has units, filter by 'unit' here
-    const focusWords = pickFocusWords(vocab);
+    const body = await req.json().catch(() => ({}));
+    const { stage = "SVO", unit = "All", chapter = "All" } = body;
+
+    const raw = await loadSemester(req);
+    const all = normalizeVocab(raw);
+    if (!all.length) {
+      return new Response(JSON.stringify({ error: "semester1.json loaded but had no usable entries for this schema" }), { status: 400 });
+    }
+
+    // Filter by unit/chapter
+    let pool = all;
+    if (unit && unit !== "All") pool = pool.filter(w => w.unit === unit);
+    if (chapter && chapter !== "All") pool = pool.filter(w => w.chapter === chapter);
+    if (!pool.length) pool = all; // graceful fallback
+
+    const focusWords = pickFocusWords(pool);
 
     const system = `You generate short Arabic ↔ English pairs for learners.
 Return STRICT JSON: {"ar":"...","en":"...","tokens":["S","V","O","Time"]}.
@@ -110,7 +90,7 @@ Constraints:
 - CEFR A1–A2 level
 - Stage indicates structure: SV, SVO, or SVO+Time
 - You MUST include EACH of these Arabic focus words exactly once: ${focusWords.join(", ")}
-- You MAY add simple particles/short function words for naturalness (e.g., في، على، من، إلى، مع، هذا، هذه)
+- You MAY add short function words for naturalness (في، على، من، إلى، مع، هذا، هذه)
 - Prefer un-diacritized Arabic unless needed for clarity
 - Keep sentences natural and short.`;
 
@@ -120,13 +100,14 @@ Constraints:
       temperature: 0.6,
       messages: [
         { role: "system", content: system },
-        { role: "user", content: JSON.stringify({ stage, focusWords }) },
+        { role: "user", content: JSON.stringify({ stage, focusWords, unit, chapter }) },
       ],
     });
 
     const content = completion.choices?.[0]?.message?.content || "{}";
     return new Response(content, { headers: { "Content-Type": "application/json" } });
   } catch (err) {
+    if (err instanceof Response) return err;
     return new Response(JSON.stringify({ error: String(err) }), { status: 500 });
   }
 }
