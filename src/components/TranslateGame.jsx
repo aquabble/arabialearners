@@ -9,6 +9,8 @@ export default function TranslateGame({ user }){
   const [unit, setUnit] = useState('All')
   const [chapter, setChapter] = useState('All')
   const [direction, setDirection] = useState('ar2en')
+  const versionRef = useRef(0)
+  const abortRef = useRef(null)
 
   const [unitOptions, setUnitOptions] = useState(['All'])
   const [chaptersByUnit, setChaptersByUnit] = useState({})
@@ -58,7 +60,7 @@ export default function TranslateGame({ user }){
   useEffect(() => { setChapter('All'); }, [unit]);
 
   // Prefetch a bundle if queue low
-  async function prefetchIfLow(min=2, size=5, signal){
+  async function prefetchIfLow(min=2, size=5, signal, versionAtCall){
     if (inflightRef.current) return;
     if (queueRef.current.length >= min) return;
     inflightRef.current = true;
@@ -73,7 +75,7 @@ export default function TranslateGame({ user }){
       const data = await res.json();
       const items = Array.isArray(data.items) ? data.items : [];
       // push to queue
-      queueRef.current.push(...items);
+      if (versionRef.current === versionAtCall) { queueRef.current.push(...items); }
     }catch(e){
       console.warn('prefetch failed', e);
     }finally{
@@ -83,6 +85,7 @@ export default function TranslateGame({ user }){
 
   function useAbortableTimeout(ms=8000){
     const controller = new AbortController();
+    abortRef.current = controller;
     const id = setTimeout(()=>controller.abort('timeout'), ms);
     return { controller, id };
   }
@@ -92,26 +95,28 @@ export default function TranslateGame({ user }){
     // if queue empty, try to prefetch synchronously (small bundle)
     if (queueRef.current.length === 0){
       const { controller, id } = useAbortableTimeout(8000);
-      await prefetchIfLow(1, 3, controller.signal).finally(()=>clearTimeout(id));
+      const v = versionRef.current;
+      await prefetchIfLow(1, 3, controller.signal, v).finally(()=>clearTimeout(id));
     }
     const next = queueRef.current.shift();
     if (next){
       setAr(next.ar); setEn(next.en); setTokens(next.tokens || []);
       setLoading(false);
       // background prefetch to keep queue warm
-      prefetchIfLow(2, 5).catch(()=>{});
+      const v = versionRef.current;
+      prefetchIfLow(2, 5, abortRef.current?.signal, v).catch(()=>{});
     }else{
       setErr('No sentences available right now.'); setLoading(false);
     }
   }
 
   useEffect(()=>{
-    // reset queue when filters change
+    versionRef.current++;
+    abortRef.current?.abort();
     queueRef.current = [];
     loadFromQueue();
   }, [stage, unit, chapter]);
-
-  async function check(){
+async function check(){
     setFeedback(null)
     try{
       const res = await fetch(`${API_BASE}/api/grade`, {
