@@ -1,5 +1,4 @@
 import { Redis } from "@upstash/redis";
-import crypto from "crypto";
 
 export const config = { runtime: "edge" };
 const redis = Redis.fromEnv();
@@ -11,18 +10,35 @@ function json(data, status = 200) {
   });
 }
 
-function getUserIdFromReq(req) {
+// Edge-safe user id hashing using Web Crypto (no Node 'crypto' import)
+async function getUserIdFromReq(req) {
+  const raw = (
+    req.headers.get("x-user-id") ||
+    req.headers.get("x-forwarded-for") ||
+    req.headers.get("cf-connecting-ip") ||
+    req.headers.get("user-agent") ||
+    "anon"
+  ).toString();
+
   try {
-    const ua = req.headers.get("x-user-id") || req.headers.get("x-forwarded-for") || req.headers.get("cf-connecting-ip") || req.headers.get("user-agent") || "anon";
-    return crypto.createHash("sha256").update(String(ua)).digest("hex").slice(0, 16);
+    const enc = new TextEncoder();
+    const buf = await crypto.subtle.digest("SHA-256", enc.encode(raw));
+    const hex = Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, "0")).join("");
+    return hex.slice(0, 16);
   } catch {
-    return "anon";
+    // Fallback: trimmed base64 (URL-safe) of the raw string
+    try {
+      const b64 = btoa(unescape(encodeURIComponent(raw))).replace(/=+$/,"").replace(/\+/g,"-").replace(/\//g,"_");
+      return b64.slice(0, 16);
+    } catch {
+      return "anon";
+    }
   }
 }
 
 export default async function handler(req) {
   try {
-    const userId = getUserIdFromReq(req);
+    const userId = await getUserIdFromReq(req);
     const prefix = `served:${userId}:`;
     const keys = await redis.keys(`${prefix}*`).catch(() => []);
     let cleared = 0;
