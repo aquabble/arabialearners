@@ -25,8 +25,9 @@ export default function StudyShell({ user, mode, setMode, onSignIn, onLogout, ch
         compact={isGame}
         onSignIn={onSignIn}
         onLogout={onLogout}
-        onNav={setMode}      // ← pass navigation to header
-        items={items}        // ← menu items for dropdown
+        onNav={setMode}
+        items={items}
+        current={mode}     // ← pass current to highlight active row
         right={isGame ? null : <div className="badge ok">Beta</div>}
       />
 

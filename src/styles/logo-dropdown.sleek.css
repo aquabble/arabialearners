@@ -1,0 +1,38 @@
+/* src/styles/logo-dropdown.sleek.css */
+/* Sleek, minimal dropdown to match the site's dark UI */
+
+.brand-trigger.sleek{
+  display:inline-flex; align-items:center; gap:8px;
+  background:transparent; border:0; color:inherit; padding:0; cursor:pointer;
+}
+.brand-trigger.sleek .chev{ transition: transform .18s ease; opacity:.9 }
+.brand-trigger.sleek .chev.up{ transform: rotate(180deg); }
+
+.brand-menu.sleek{ position:absolute; left:12px; top:100%; z-index:220; padding-top:8px; }
+.header-compact .brand-menu.sleek{ left:10px; }
+
+.brand-menu-inner.sleek{
+  min-width: 260px;
+  background: rgba(10,14,24,0.96);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 14px;
+  box-shadow: 0 14px 40px rgba(0,0,0,0.45);
+  backdrop-filter: saturate(140%) blur(14px);
+  overflow: hidden;
+}
+
+.brand-menu-item.sleek{
+  display:flex; align-items:center; gap:12px;
+  width:100%; text-align:left;
+  background:transparent; border:0; color:#e7ecf7;
+  padding:12px 14px; font-size:16px; line-height:1.15;
+}
+.brand-menu-item.sleek .icon{ width:22px; height:22px; display:grid; place-items:center; opacity:.85; }
+.brand-menu-item.sleek:hover,
+.brand-menu-item.sleek:focus{ background: rgba(255,255,255,0.06); outline:none; }
+.brand-menu-item.sleek.active{ background: rgba(122,162,255,0.18); color:#fff; }
+
+.brand-menu-sep{ height:1px; background: rgba(255,255,255,0.07); margin:4px 0; }
+
+/* Ensure header is a positioning context */
+.header .header-inner{ position:relative; }
