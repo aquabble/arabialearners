@@ -1,7 +1,8 @@
 // api/sentence-bundle.js
 export const config = { runtime: 'edge' }
 import OpenAI from 'openai'
-import { ok, svc, oops, safe, env } from './_utils.js'
+
+function safe(v){ return String(v == null ? '' : v).trim() }
 
 function lengthHintFromDifficulty(d){
   return d === 'short' ? 'Keep the Arabic sentence concise (≈5–7 words).'
@@ -10,9 +11,14 @@ function lengthHintFromDifficulty(d){
 }
 
 export default async function handler(req){
+  const url = new URL(req.url)
+  const debug = url.searchParams.get('debug') === '1'
   try{
-    const key = env('OPENAI_API_KEY')
-    if(!key) return svc({ error:'Missing OPENAI_API_KEY', hint:'Add it in Vercel → Settings → Environment Variables' })
+    const key = (process.env && process.env.OPENAI_API_KEY) || ''
+    if(!key){
+      const payload = { error:'Missing OPENAI_API_KEY', where:'api/sentence-bundle' }
+      return new Response(JSON.stringify(payload), { status: debug ? 200 : 503, headers:{'content-type':'application/json'} })
+    }
     const client = new OpenAI({ apiKey: key })
 
     const body = await req.json().catch(()=>({}))
@@ -38,19 +44,20 @@ Avoid diacritics unless essential.`
     for (let i=0; i<n; i++){
       const resp = await client.responses.create({
         model: 'gpt-4o-mini',
-        response_format: { type: 'json_object' },
         input: [
           { role:'system', content: SYSTEM },
           { role:'user', content: userBase + `\n#${i+1}` }
-        ]
+        ],
+        text: { format: "json" }
       })
       let data = {}
       try{ data = JSON.parse(resp.output_text || '{}') }catch{}
       items.push({ ar: safe(data.ar), en: safe(data.en), tokens: Array.isArray(data.tokens)?data.tokens:[] })
     }
 
-    return ok({ items })
+    return new Response(JSON.stringify({ items }), { status: 200, headers:{'content-type':'application/json'} })
   }catch(e){
-    return oops({ error: String(e?.message || e), where:'api/sentence-bundle' })
+    const payload = { error: String(e?.message || e), where:'api/sentence-bundle' }
+    return new Response(JSON.stringify(payload), { status: debug ? 200 : 500, headers:{'content-type':'application/json'} })
   }
 }
