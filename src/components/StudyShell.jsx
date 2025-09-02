@@ -23,7 +23,6 @@ export default function StudyShell({ user, mode, setMode, onSignIn, onLogout, ch
           </div>
         </div>
 
-        {/* Overview cards */}
         <div className="mt-16 grid cols-3">
           {user ? (
             <>

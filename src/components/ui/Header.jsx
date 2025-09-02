@@ -19,13 +19,15 @@ export default function Header({ user, onLogout, onSettings, onSignIn, right=nul
 
           {user ? (
             <>
-              <div className="avatar" title={user.displayName || user.name || 'User'}>
+              <div className="avatar" title={user?.displayName || user?.name || 'User'}>
                 {initials || '🙂'}
               </div>
               {onLogout && <Button variant="ghost" onClick={onLogout}>Log out</Button>}
             </>
           ) : (
-            <Button variant="brand" onClick={onSignIn}>Sign in</Button>
+            <Button data-qa="sign-in" variant="brand" onClick={() => { console.log('[ui] Sign in clicked'); onSignIn && onSignIn(); }}>
+              Sign in
+            </Button>
           )}
         </div>
       </div>
