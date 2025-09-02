@@ -1,6 +1,6 @@
 // src/App.jsx
 import { useState } from 'react'
-import TopBar from './components/TopBar.jsx'
+import Header from './components/ui/Header.jsx'
 import Home from './components/Home.jsx'
 import TranslateGame from './components/TranslateGame.jsx'
 import WordOrderGame from './components/WordOrderGame.jsx'
@@ -12,7 +12,7 @@ export default function App(){
 
   return (
     <div className="app-root">
-      <TopBar onNav={setMode} user={user} />
+      <Header onNav={setMode} user={user} onSignIn={()=>setMode('signin')} onSignOut={()=>setMode('home')} />
       <main className="container" style={{paddingTop:16}}>
         {mode === 'home' && <Home onNav={setMode} user={user} />}
         {mode === 'translate' && <TranslateGame user={user} />}
@@ -21,7 +21,7 @@ export default function App(){
         {mode === 'signin' && (
           <div className="card" style={{padding:24, border:'1px solid var(--border)', borderRadius:12}}>
             <h3>Sign in</h3>
-            <p className="small" style={{opacity:.8}}>Hook this button to your auth flow.</p>
+            <p className="small" style={{opacity:.8}}>Wire this to your auth flow.</p>
           </div>
         )}
       </main>
