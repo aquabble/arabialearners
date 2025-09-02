@@ -1,0 +1,25 @@
+*** Begin Patch
+*** Update File: api/_servedTracker.js
+@@
+-export async function filterNovel(userId, items, windowMs = 7*24*3600*1000) {
+-  const out = [];
+-  for (const it of (items || [])) {
+-    if (!it?.hash) { out.push(it); continue; }
+-    const seen = await isRecentlyServed(userId, it.hash, windowMs);
+-    if (!seen) out.push(it);
+-  }
+-  return out;
+-}
++// Shorter novelty window and safe fallback:
++export async function filterNovel(userId, items, windowMs = 24*3600*1000) {
++  const src = Array.isArray(items) ? items : [];
++  const out = [];
++  for (const it of src) {
++    if (!it?.hash) { out.push(it); continue; }
++    const seen = await isRecentlyServed(userId, it.hash, windowMs);
++    if (!seen) out.push(it);
++  }
++  // If everything was "recent", allow repeats to avoid dead-ends
++  return out.length ? out : src;
++}
+*** End Patch
