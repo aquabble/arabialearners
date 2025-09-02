@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Card, CardBody, CardTitle, CardSub } from './ui/Card.jsx'
 import Button from './ui/Button.jsx'
 import Input from './ui/Input.jsx'
@@ -8,7 +8,7 @@ export default function TranslateGame({ user }){
   const [stage, setStage] = useState('SVO')
   const [unit, setUnit] = useState('All')
   const [chapter, setChapter] = useState('All')
-  const [direction, setDirection] = useState('ar2en') // default Arabic → English
+  const [direction, setDirection] = useState('ar2en')
 
   const [unitOptions, setUnitOptions] = useState(['All'])
   const [chaptersByUnit, setChaptersByUnit] = useState({})
@@ -23,7 +23,10 @@ export default function TranslateGame({ user }){
   const [guess, setGuess] = useState('')
   const [feedback, setFeedback] = useState(null)
 
-  // discover Unit + Chapter options from semester1.json
+  // queue of pre-fetched sentences
+  const queueRef = useRef([])
+  const inflightRef = useRef(false)
+
   async function fetchUnitChapterOptions(){
     try {
       const res = await fetch('/semester1.json', { cache: 'no-store' });
@@ -46,39 +49,67 @@ export default function TranslateGame({ user }){
       setUnitOptions(units);
       setChaptersByUnit(byUnit);
     } catch (e) {
-      // fallback
       setUnitOptions(['All']);
       setChaptersByUnit({});
     }
   }
 
   useEffect(() => { fetchUnitChapterOptions(); }, []);
-  useEffect(() => { setChapter('All'); }, [unit]); // reset chapter when unit changes
+  useEffect(() => { setChapter('All'); }, [unit]);
 
-  async function loadSentence(){
-    setLoading(true); setErr(null); setFeedback(null); setGuess('')
+  // Prefetch a bundle if queue low
+  async function prefetchIfLow(min=2, size=5, signal){
+    if (inflightRef.current) return;
+    if (queueRef.current.length >= min) return;
+    inflightRef.current = true;
     try{
-      const res = await fetch(`${API_BASE}/api/sentence`, {
+      const res = await fetch(`${API_BASE}/api/sentence-bundle`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ stage, unit, chapter })
-      })
-      if (!res.ok) {
-        const text = await res.text();
-        throw new Error(`sentence ${res.status}: ${text}`);
-      }
-      const data = await res.json()
-      if(data.error) throw new Error(data.error)
-      setAr(data.ar); setEn(data.en); setTokens(data.tokens || [])
+        body: JSON.stringify({ stage, unit, chapter, count: size }),
+        signal
+      });
+      if (!res.ok) throw new Error(`bundle ${res.status}: ${await res.text()}`);
+      const data = await res.json();
+      const items = Array.isArray(data.items) ? data.items : [];
+      // push to queue
+      queueRef.current.push(...items);
     }catch(e){
-      setErr(String(e))
-      setAr('الولد يقرأ الكتاب.'); setEn('The boy reads the book.'); setTokens(['S','V','O'])
+      console.warn('prefetch failed', e);
     }finally{
-      setLoading(false)
+      inflightRef.current = false;
     }
   }
 
-  useEffect(()=>{ loadSentence() }, [stage, unit, chapter])
+  function useAbortableTimeout(ms=8000){
+    const controller = new AbortController();
+    const id = setTimeout(()=>controller.abort('timeout'), ms);
+    return { controller, id };
+  }
+
+  async function loadFromQueue(){
+    setLoading(true); setErr(null); setFeedback(null); setGuess('');
+    // if queue empty, try to prefetch synchronously (small bundle)
+    if (queueRef.current.length === 0){
+      const { controller, id } = useAbortableTimeout(8000);
+      await prefetchIfLow(1, 3, controller.signal).finally(()=>clearTimeout(id));
+    }
+    const next = queueRef.current.shift();
+    if (next){
+      setAr(next.ar); setEn(next.en); setTokens(next.tokens || []);
+      setLoading(false);
+      // background prefetch to keep queue warm
+      prefetchIfLow(2, 5).catch(()=>{});
+    }else{
+      setErr('No sentences available right now.'); setLoading(false);
+    }
+  }
+
+  useEffect(()=>{
+    // reset queue when filters change
+    queueRef.current = [];
+    loadFromQueue();
+  }, [stage, unit, chapter]);
 
   async function check(){
     setFeedback(null)
@@ -106,7 +137,7 @@ export default function TranslateGame({ user }){
     <Card>
       <CardBody>
         <CardTitle>Translate</CardTitle>
-        <CardSub>AI‑generated sentences • AI grading with hints</CardSub>
+        <CardSub>AI‑generated sentences • AI grading with hints (prefetched for speed)</CardSub>
 
         <div className="small mb-16" style={{display:'flex', gap:12, flexWrap:'wrap'}}>
           <div>
@@ -139,7 +170,7 @@ export default function TranslateGame({ user }){
         </div>
 
         {loading ? (
-          <div className="small">Generating…</div>
+          <div className="small">Getting a sentence…</div>
         ) : (
           <>
             <div className="title mb-16">
@@ -148,7 +179,7 @@ export default function TranslateGame({ user }){
             <Input placeholder={placeholder} value={guess} onChange={e=>setGuess(e.target.value)} />
             <div className="mt-16 flex items-center gap-16">
               <Button variant="brand" onClick={check}>Check</Button>
-              <Button className="ghost" onClick={loadSentence}>Next</Button>
+              <Button className="ghost" onClick={loadFromQueue}>Next</Button>
               {feedback && (
                 <span className={`badge ${feedback.verdict==='correct'?'ok': feedback.verdict==='minor'?'warn':''}`}>
                   {feedback.verdict === 'correct' ? 'Correct' : feedback.verdict === 'minor' ? 'Almost' : 'Try again'}
@@ -156,12 +187,6 @@ export default function TranslateGame({ user }){
               )}
             </div>
             {feedback && feedback.hint && <div className="small mt-16">{feedback.hint}</div>}
-            <div className="small mt-16">Reference (tap to reveal):
-              <details><summary>Show both</summary>
-                <div style={{marginTop:8}}><strong>Arabic:</strong> {ar}</div>
-                <div><strong>English:</strong> {en}</div>
-              </details>
-            </div>
           </>
         )}
 
