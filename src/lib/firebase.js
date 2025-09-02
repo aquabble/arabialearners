@@ -1,22 +1,31 @@
-import { initializeApp } from 'firebase/app'
-import { getAuth, GoogleAuthProvider, signInWithPopup, onAuthStateChanged, signOut } from 'firebase/auth'
-import { getFirestore, doc, getDoc, setDoc, onSnapshot } from 'firebase/firestore'
-const firebaseConfig = {
+// src/lib/firebase.js
+// Initialize Firebase once, using Vite env vars.
+// Make sure you set these in .env.local (dev) and Vercel env (prod).
+// VITE_FIREBASE_API_KEY, VITE_FIREBASE_AUTH_DOMAIN, VITE_FIREBASE_PROJECT_ID, VITE_FIREBASE_APP_ID
+import { initializeApp, getApps, getApp } from 'firebase/app';
+import { getAuth, setPersistence, browserLocalPersistence } from 'firebase/auth';
+
+const cfg = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
   authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
   projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
+  appId: import.meta.env.VITE_FIREBASE_APP_ID,
+  // optional (set if you have them)
   storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
   messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
-  appId: import.meta.env.VITE_FIREBASE_APP_ID,
-  measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID,
+};
+
+// Guard against missing config (helps when .env not loaded)
+for (const [k, v] of Object.entries(cfg)) {
+  if (typeof v === 'undefined') {
+    // leave as undefined; Firebase SDK tolerates missing optional fields
+  }
 }
-const app = initializeApp(firebaseConfig)
-export const auth = getAuth(app)
-export const db = getFirestore(app)
-export const provider = new GoogleAuthProvider()
-export async function firebaseSignIn(){ const res = await signInWithPopup(auth, provider); const u=res.user; return { uid:u.uid, email:u.email, name:u.displayName } }
-export async function firebaseSignOut(){ await signOut(auth) }
-export function onAuth(cb){ return onAuthStateChanged(auth, u => cb(u?{uid:u.uid,email:u.email,name:u.displayName}:null)) }
-export async function loadState(uid){ const ref = doc(db,'users',uid,'state','kv'); const s=await getDoc(ref); return s.exists()?s.data():{} }
-export async function saveState(uid,data){ const ref=doc(db,'users',uid,'state','kv'); await setDoc(ref,data,{merge:true}); return true }
-export function watchState(uid,cb){ const ref=doc(db,'users',uid,'state','kv'); return onSnapshot(ref,snap=>cb(snap.exists()?snap.data():{})) }
+
+const app = getApps().length ? getApp() : initializeApp(cfg);
+const auth = getAuth(app);
+
+// Persist across reloads (local tab)
+setPersistence(auth, browserLocalPersistence).catch(() => {});
+
+export { app, auth };
