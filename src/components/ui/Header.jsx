@@ -1,6 +1,6 @@
 // src/components/ui/Header.jsx
 import { useState, useRef, useEffect } from 'react'
-import Button from '../Button.jsx'
+import Button from './Button.jsx'
 
 export default function Header({ onNav, user, onSignIn, onSignOut }){
   const [open, setOpen] = useState(false)

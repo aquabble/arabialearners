@@ -4,9 +4,7 @@
   "version": "0.1.0",
   "type": "module",
   "scripts": {
-    "predev": "node scripts/apply_words_nav_patch.js && node scripts/apply_words_patch.js || true",
     "dev": "vite",
-    "prebuild": "node scripts/apply_words_nav_patch.js && node scripts/apply_words_patch.js || true",
     "build": "cross-env NODE_ENV=production vite build",
     "preview": "vite preview",
     "lint": "eslint src --ext .js,.jsx",
