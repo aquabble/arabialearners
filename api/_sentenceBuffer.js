@@ -95,3 +95,52 @@ async function cryptoHash(text) {
   h.update(text);
   return h.digest("hex");
 }
+
+
+/** Low-level helpers for smarter popping/requeue */
+function listKey(sem, unit, chap) { return `buf:list:sem:${sem||"0"}:unit:${unit||"0"}:chap:${chap||"0"}`; }
+function setKey(sem, unit, chap) { return `buf:set:sem:${sem||"0"}:unit:${unit||"0"}:chap:${chap||"0"}`; }
+function docKey(hash) { return `buf:item:${hash}`; }
+
+export async function bufferGetByHash(hash) {
+  if (!hash) return null;
+  const dKey = docKey(hash);
+  return await redis.get(dKey);
+}
+
+/** Requeue a hash to the FRONT (fresh for others) */
+export async function bufferRequeueFront({ semester="0", unit="0", chapter="0" }={}, hash) {
+  if (!hash) return;
+  const lKey = listKey(String(semester), String(unit), String(chapter));
+  await redis.lpush(lKey, hash);
+}
+
+/**
+ * Pop a non-recent item for a given user by trying up to N attempts.
+ * "isRecent" is a predicate that accepts (hash) => Promise<boolean>.
+ * If only recent items exist, returns the oldest recent (last tried).
+ */
+export async function bufferPopNovel({ semester="0", unit="0", chapter="0" }={}, isRecent, attempts=10) {
+  const lKey = listKey(String(semester), String(unit), String(chapter));
+  let lastCandidate = null;
+
+  for (let i=0; i<attempts; i++) {
+    const hash = await redis.rpop(lKey);
+    if (!hash) return null;
+    lastCandidate = hash;
+    if (isRecent && await isRecent(hash)) {
+      // put it back to the FRONT so others may still get it later
+      await redis.lpush(lKey, hash);
+      continue;
+    }
+    const data = await bufferGetByHash(hash);
+    if (!data) { continue; } // stale doc, try next
+    return data;
+  }
+  // fallback: return the last candidate if exists, even if recent
+  if (lastCandidate) {
+    const data = await bufferGetByHash(lastCandidate);
+    if (data) return data;
+  }
+  return null;
+}
