@@ -1,113 +1,79 @@
-import OpenAI from "openai";
+// api/sentence.js
+export const config = { runtime: 'edge' }
 
-export const config = { runtime: "edge" };
-const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+import OpenAI from 'openai'
 
-// --- LOAD VOCAB FROM STATIC FILE ---
-async function loadSemester(req) {
-  const host = req.headers.get("host");
-  const urls = [
-    `https://${host}/semester1.json`,
-    `https://${host}/data/semester1.json`
-  ];
-  for (const url of urls) {
-    const res = await fetch(url, { cache: "no-store" });
-    if (res.ok) return await res.json();
+const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
+
+function lengthHintFromDifficulty(difficulty){
+  switch(difficulty){
+    case 'short': return 'Keep the Arabic sentence concise (≈5–7 words).'
+    case 'long': return 'Use a longer Arabic sentence (≈13–20 words).'
+    default: return 'Aim for a medium-length Arabic sentence (≈8–12 words).'
   }
-  throw new Response(JSON.stringify({ error: "semester1.json not found in known paths", tried: urls }), { status: 400 });
 }
 
-// --- FLATTEN THE USER'S SCHEMA ---
-// Expected shape (simplified):
-// { semester: 1, units: [ { unit: { id, name, chapters: [ { id, name, vocab: [ { ar, en }, ... ] } ] } }, ... ] }
-function normalizeVocab(raw) {
-  const out = [];
-  const units = Array.isArray(raw?.units) ? raw.units : [];
-  for (const u of units) {
-    const U = u?.unit;
-    if (!U) continue;
-    const unitName = (U.name || U.id || "Unit").toString();
-    const chapters = Array.isArray(U.chapters) ? U.chapters : [];
-    for (const ch of chapters) {
-      const chapterName = (ch?.name || ch?.id || "").toString() || null;
-      const vocab = Array.isArray(ch?.vocab) ? ch.vocab : [];
-      for (const item of vocab) {
-        const ar = (item && (item.ar || item.arabic || item.word)) || "";
-        const en = (item && (item.en || item.english || item.translation || item.gloss)) || "";
-        const AR = String(ar).trim();
-        if (!AR) continue;
-        out.push({
-          ar: AR,
-          en: String(en || "").trim(),
-          pos: "",                 // no POS field in this schema
-          unit: unitName,
-          chapter: chapterName,
-        });
-      }
-    }
-  }
-  return out;
-}
+export default async function handler(req){
+  try{
+    const body = await req.json()
+    const {
+      stage = 'SVO',
+      unit = 'All',
+      chapter = 'All',
+      direction = 'ar2en',
+      difficulty = 'medium',
+      timeMode = 'none',
+      timeText = ''
+    } = body || {}
 
-// --- PICK 1-3 FOCUS WORDS ---
-function pickFocusWords(vocab) {
-  if (!vocab.length) return [];
-  const picks = new Set();
-  while (picks.size < Math.min(3, vocab.length)) {
-    const rnd = vocab[Math.floor(Math.random() * vocab.length)].ar;
-    picks.add(rnd);
-    if (picks.size >= 2) break;
-  }
-  return Array.from(picks);
-}
+    const lengthHint = lengthHintFromDifficulty(difficulty)
+    const timeHint = (timeMode === 'custom' && (timeText||'').trim())
+      ? `Include the specific time expression: "${(timeText||'').trim()}".`
+      : (timeMode === 'none'
+          ? 'Do not include any explicit time expression.'
+          : 'Optionally include a natural time expression.'
+        )
 
-export default async function handler(req) {
-  try {
-    if (!process.env.OPENAI_API_KEY) {
-      return new Response(JSON.stringify({ error: "OPENAI_API_KEY not set" }), { status: 400 });
-    }
+    const SYSTEM = `You are a helpful Arabic tutoring assistant.
+Generate an Arabic sentence and its English translation. ${lengthHint} ${timeHint}
+Constrain content to the requested unit/chapter if provided.
 
-    const body = await req.json().catch(() => ({}));
-    const { stage = "SVO", unit = "All", chapter = "All" } = body;
+Return strict JSON: { "ar": "...", "en": "...", "tokens": ["..."] }
+- tokens: list of key Arabic words used (strings).
+Avoid diacritics unless essential.`
 
-    const raw = await loadSemester(req);
-    const all = normalizeVocab(raw);
-    if (!all.length) {
-      return new Response(JSON.stringify({ error: "semester1.json loaded but had no usable entries for this schema" }), { status: 400 });
-    }
+    const userParts = []
+    userParts.push(`Unit: ${unit}`)
+    userParts.push(`Chapter: ${chapter}`)
+    userParts.push(`Direction: ${direction}`)
 
-    // Filter by unit/chapter
-    let pool = all;
-    if (unit && unit !== "All") pool = pool.filter(w => w.unit === unit);
-    if (chapter && chapter !== "All") pool = pool.filter(w => w.chapter === chapter);
-    if (!pool.length) pool = all; // graceful fallback
+    const prompt = userParts.join('\n')
 
-    const focusWords = pickFocusWords(pool);
+    const resp = await openai.responses.create({
+      model: 'gpt-4o-mini',
+      response_format: { type: 'json_object' },
+      input: [
+        { role: 'system', content: SYSTEM },
+        { role: 'user', content: prompt }
+      ]
+    })
 
-    const system = `You generate short Arabic ↔ English pairs for learners.
-Return STRICT JSON: {"ar":"...","en":"...","tokens":["S","V","O","Time"]}.
-Constraints:
-- CEFR A1–A2 level
-- Stage indicates structure: SV, SVO, or SVO+Time
-- You MUST include EACH of these Arabic focus words exactly once: ${focusWords.join(", ")}
-- You MAY add short function words for naturalness (في، على، من، إلى، مع، هذا، هذه)
-- Prefer un-diacritized Arabic unless needed for clarity
-- Keep sentences natural and short.`;
+    const text = resp.output_text || '{}'
+    let data
+    try { data = JSON.parse(text) } catch { data = {} }
 
-    const completion = await client.chat.completions.create({
-      model: "gpt-4o-mini",
-      response_format: { type: "json_object" },
-      temperature: 0.6,
-      messages: [
-        { role: "system", content: system },
-        { role: "user", content: JSON.stringify({ stage, focusWords, unit, chapter }) },
-      ],
-    });
+    const ar = String(data.ar || '').trim()
+    const en = String(data.en || '').trim()
+    const tokens = Array.isArray(data.tokens) ? data.tokens : []
 
-    const content = completion.choices?.[0]?.message?.content || "{}";
-    return new Response(content, { headers: { "Content-Type": "application/json" } });
-  } catch (err) {
-    if (err instanceof Response) return err;
-    return new Response(JSON.stringify({ error: String(err) }), { status: 500 });
+    return new Response(JSON.stringify({ ar, en, tokens }), {
+      status: 200,
+      headers: { 'content-type': 'application/json' }
+    })
+  }catch(e){
+    return new Response(JSON.stringify({ error: String(e) }), {
+      status: 500,
+      headers: { 'content-type': 'application/json' }
+    })
   }
 }

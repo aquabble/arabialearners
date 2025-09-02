@@ -1,14 +1,19 @@
+// src/components/TranslateGame.jsx
 import { useEffect, useRef, useState } from 'react'
 import { Card, CardBody, CardTitle, CardSub } from './ui/Card.jsx'
 import Button from './ui/Button.jsx'
 import Input from './ui/Input.jsx'
 import { API_BASE } from '../lib/apiBase.js'
+import { recordResult } from '../lib/wordStats.js'
 
 export default function TranslateGame({ user }){
-  const [stage, setStage] = useState('SVO')
+  const [difficulty, setDifficulty] = useState('medium')  // short | medium | long
   const [unit, setUnit] = useState('All')
   const [chapter, setChapter] = useState('All')
   const [direction, setDirection] = useState('ar2en')
+
+  const [timeMode, setTimeMode] = useState('none') // none | custom
+  const [timeText, setTimeText] = useState('')
 
   const [unitOptions, setUnitOptions] = useState(['All'])
   const [chaptersByUnit, setChaptersByUnit] = useState({})
@@ -23,10 +28,10 @@ export default function TranslateGame({ user }){
   const [guess, setGuess] = useState('')
   const [feedback, setFeedback] = useState(null)
 
-  // queues per (stage,unit,chapter)
+  // queues per (difficulty,unit,chapter,timeMode,timeText)
   const queuesRef = useRef(new Map())
   const inflightRef = useRef(null)
-  const scopeKey = (s=stage,u=unit,c=chapter) => `${s}__${u}__${c}`
+  const scopeKey = (d=difficulty,u=unit,c=chapter,t=timeMode,tt=timeText.trim()) => `${d}__${u}__${c}__${t}__${tt}`
 
   async function fetchUnitChapterOptions(){
     try {
@@ -72,14 +77,11 @@ export default function TranslateGame({ user }){
       const res = await fetch(`${API_BASE}/api/sentence-bundle`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        // FIX: the API expects `size`, not `count`
-        body: JSON.stringify({ stage, unit, chapter, size, scopeKey: key }),
+        body: JSON.stringify({ difficulty, unit, chapter, size, timeMode, timeText, direction }),
         signal: controller.signal
       })
       if (!res.ok) throw new Error(`bundle ${res.status}: ${await res.text()}`)
       const data = await res.json()
-      // FIX: only compare when server sends scopeKey (current endpoint doesn't)
-      if (data.scopeKey && data.scopeKey !== key) return
       const items = Array.isArray(data.items) ? data.items : []
       const q = queuesRef.current.get(key) || []
       q.push(...items)
@@ -95,7 +97,6 @@ export default function TranslateGame({ user }){
     const q = queuesRef.current.get(key) || []
     if (q.length < min && !inflightRef.current){
       const size = q.length === 0 ? 3 : 5
-      // already guarded; AbortError won’t surface
       prefetch(size).catch(()=>{})
     }
   }
@@ -105,12 +106,10 @@ export default function TranslateGame({ user }){
     const key = scopeKey()
     let q = queuesRef.current.get(key) || []
     if (q.length === 0){
-      // FIX: guard against AbortError / timeout so console stays clean
       try {
         await prefetch(3)
       } catch (e) {
         if (e?.name !== 'AbortError') {
-          // Non-abort errors can show as a note to user
           setErr(`Prefetch error: ${String(e)}`)
         }
       }
@@ -123,7 +122,7 @@ export default function TranslateGame({ user }){
       setLoading(false)
       ensureWarm(2)
     }else{
-      setErr('No sentences available for this unit/chapter right now.')
+      setErr('No sentences available for this selection right now.')
       setLoading(false)
     }
   }
@@ -133,10 +132,9 @@ export default function TranslateGame({ user }){
     abortInflight()
     const key = scopeKey()
     queuesRef.current.set(key, [])
-    // we intentionally don't await; showNext handles its own errors
     showNext()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [stage, unit, chapter])
+  }, [difficulty, unit, chapter, timeMode, timeText])
 
   async function check(){
     setFeedback(null)
@@ -148,6 +146,7 @@ export default function TranslateGame({ user }){
       })
       const data = await res.json()
       setFeedback(data)
+      try { recordResult({ arSentence: ar, tokens, verdict: data?.verdict }); } catch {}
     }catch(e){
       setFeedback({ verdict:'wrong', hint:'Could not reach grader. ' + String(e) })
     }
@@ -164,10 +163,10 @@ export default function TranslateGame({ user }){
 
         {/* controls */}
         <div className="small mb-16" style={{display:'flex', gap:12, flexWrap:'wrap'}}>
-          <div>Stage: <select className="input" value={stage} onChange={e=>setStage(e.target.value)}>
-            <option value="SV">SV</option>
-            <option value="SVO">SVO</option>
-            <option value="SVO+Time">SVO+Time</option>
+          <div>Difficulty: <select className="input" value={difficulty} onChange={e=>setDifficulty(e.target.value)}>
+            <option value="short">Short</option>
+            <option value="medium">Medium</option>
+            <option value="long">Long</option>
           </select></div>
           <div>Direction: <select className="input" value={direction} onChange={e=>setDirection(e.target.value)}>
             <option value="ar2en">Arabic → English</option>
@@ -179,6 +178,19 @@ export default function TranslateGame({ user }){
           <div>Chapter: <select className="input" value={chapter} onChange={e=>setChapter(e.target.value)}>
             {(chaptersByUnit[unit] || ['All']).map(c => <option key={c} value={c}>{c}</option>)}
           </select></div>
+
+          {/* time sub-tab */}
+          <div style={{display:'flex', alignItems:'center', gap:8}}>
+            <span>Time:</span>
+            <div className="btn-group" role="tablist" style={{display:'inline-flex', gap:6}}>
+              <button type="button" className={`btn ${timeMode==='none'?'brand':''}`} onClick={()=>setTimeMode('none')}>None</button>
+              <button type="button" className={`btn ${timeMode==='custom'?'brand':''}`} onClick={()=>setTimeMode('custom')}>Add</button>
+            </div>
+            {timeMode==='custom' && (
+              <input className="input" style={{minWidth:220}} placeholder="e.g., yesterday morning / at 5pm / on Friday"
+                value={timeText} onChange={e=>setTimeText(e.target.value)} />
+            )}
+          </div>
         </div>
 
         {loading ? <div className="small">Getting a sentence…</div> : (
