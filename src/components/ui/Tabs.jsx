@@ -1,8 +1,7 @@
-
 // src/components/ui/Tabs.jsx
 export function Tabs({ items = [], value, onChange }){
   return (
-    <div className="tabs-scroll">
+    <div className="tabs-scroll" style={{display:'flex',gap:10,overflowX:'auto',whiteSpace:'nowrap'}}>
       {items.map(it => (
         <button
           key={it.value}
@@ -16,3 +15,4 @@ export function Tabs({ items = [], value, onChange }){
     </div>
   )
 }
+export default Tabs;
