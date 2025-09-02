@@ -1,27 +1,17 @@
 // api/_utils.js
-export function getOpenAI() {
-  const key = process.env.OPENAI_API_KEY || ''
-  if (!key) return { error: 'Missing OPENAI_API_KEY' }
-  // edge-safe dynamic import
-  const OpenAI = requireOpenAI()
-  const client = new OpenAI({ apiKey: key })
-  return { client }
-}
-
-// avoid bundler static analysis issues in edge
-function requireOpenAI(){
-  // eslint-disable-next-line no-new-func
-  const mod = new Function('return require("openai")')()
-  return mod.default || mod
-}
-
 export function json(res, status=200){
   return new Response(JSON.stringify(res), {
     status,
     headers: { 'content-type': 'application/json' }
   })
 }
+export const ok = (res)=>json(res, 200)
+export const bad = (res)=>json(res, 400)
+export const oops = (res)=>json(res, 500)
+export const svc = (res)=>json(res, 503)
 
-export function safeText(v){
-  return String(v == null ? '' : v).trim()
+export function env(key){
+  try{ return process.env[key] || '' }catch{ return '' }
 }
+
+export function safe(v){ return String(v == null ? '' : v).trim() }
