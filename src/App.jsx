@@ -1,31 +1,20 @@
-import { useEffect, useState } from 'react'
-import StudyShell from './components/StudyShell.jsx'
+// src/App.jsx
+import { useState } from 'react'
 import Home from './components/Home.jsx'
 import TranslateGame from './components/TranslateGame.jsx'
 import WordOrderGame from './components/WordOrderGame.jsx'
-import { signInWithGoogle, signOutUser, onAuthChanged, completeRedirectIfNeeded } from './lib/auth.js'
+import Words from './components/Words.jsx'
 
 export default function App(){
   const [mode, setMode] = useState('home')
-  const [user, setUser] = useState(null)
-
-  useEffect(() => {
-    completeRedirectIfNeeded()
-    const unsub = onAuthChanged(u => setUser(u))
-    return () => unsub && unsub()
-  }, [])
+  const user = null
 
   return (
-    <StudyShell
-      user={user}
-      mode={mode}
-      setMode={setMode}
-      onSignIn={async () => { await signInWithGoogle() }}
-      onLogout={async () => { await signOutUser() }}
-    >
+    <div className="container">
       {mode === 'home' && <Home onNav={setMode} user={user} />}
       {mode === 'translate' && <TranslateGame user={user} />}
       {mode === 'word-order' && <WordOrderGame user={user} />}
-    </StudyShell>
+      {mode === 'words' && <Words user={user} />}
+    </div>
   )
 }

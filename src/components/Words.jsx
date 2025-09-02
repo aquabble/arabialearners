@@ -10,13 +10,7 @@ function WordBubble({ item }){
   const variants = forms.slice(0, 6).join(' · ')
   return (
     <div className="word-bubble" style={{border:'1px solid var(--border)', borderRadius:16, padding:12}}>
-      <button
-        type="button"
-        className="btn"
-        onClick={()=>setOpen(o=>!o)}
-        title={`${en || '—'}`}
-        style={{width:'100%', display:'flex', justifyContent:'space-between'}}
-      >
+      <button type="button" className="btn" onClick={()=>setOpen(o=>!o)} title={`${en || '—'}`} style={{width:'100%', display:'flex', justifyContent:'space-between'}}>
         <span style={{fontWeight:700, fontSize:18}}>{ar}</span>
         <span className="small" style={{opacity:.8}}>{en || '—'}</span>
       </button>
@@ -65,14 +59,12 @@ export default function Words(){
       <CardBody>
         <CardTitle>Your Words</CardTitle>
         <CardSub>Collapses conjugations; shows accuracy per lemma.</CardSub>
-
         <div className="small" style={{margin:'12px 0', display:'flex', gap:12, flexWrap:'wrap'}}>
           <Button onClick={()=>setFilter('all')} className={filter==='all'?'brand':''}>All</Button>
           <Button onClick={()=>setFilter('known')} className={filter==='known'?'brand':''}>Known</Button>
           <Button onClick={()=>setFilter('trouble')} className={filter==='trouble'?'brand':''}>Trouble</Button>
           <span className="small" style={{opacity:.7}}>{filtered.length} / {items.length}</span>
         </div>
-
         <div className="grid" style={{gridTemplateColumns:'repeat(auto-fill, minmax(220px, 1fr))', gap:12}}>
           {filtered.map(it => <WordBubble key={it.lemma} item={it} />)}
         </div>
