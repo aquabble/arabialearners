@@ -26,7 +26,6 @@ async function getUserIdFromReq(req) {
     const hex = Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, "0")).join("");
     return hex.slice(0, 16);
   } catch {
-    // Fallback: trimmed base64 (URL-safe) of the raw string
     try {
       const b64 = btoa(unescape(encodeURIComponent(raw))).replace(/=+$/,"").replace(/\+/g,"-").replace(/\//g,"_");
       return b64.slice(0, 16);

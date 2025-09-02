@@ -5,6 +5,12 @@ export const config = { runtime: "edge" };
 function clamp(n, min, max) { return Math.max(min, Math.min(max, Math.floor(n || 0))); }
 function safe(v) { return (v ?? "").toString().trim(); }
 
+function timeoutAbort(ms) {
+  const controller = new AbortController();
+  const t = setTimeout(() => controller.abort('timeout'), ms);
+  return { controller, cancel: () => clearTimeout(t) };
+}
+
 export default async function handler(req) {
   try {
     const body = await req.json().catch(() => ({}));
@@ -12,26 +18,37 @@ export default async function handler(req) {
     const unit = safe(body?.unit || "All");
     const chapter = safe(body?.chapter || "All");
     const direction = safe(body?.direction || "ar2en");
-    const size = clamp(body?.size, 1, 8);
+    const timeMode = safe(body?.timeMode || "");
+    const timeText = safe(body?.timeText || "");
+    const requestedSize = clamp(body?.size, 1, 8);
+    // Keep under client-side 8s AbortController by clamping size
+    const size = Math.min(requestedSize || 3, 3);
+    const perReqTimeoutMs = 2300; // 2.3s * 3 ≈ 6.9s worst case
 
     const items = [];
     const baseUrl = new URL(req.url);
     baseUrl.pathname = baseUrl.pathname.replace(/\/[^\/]+$/, "/sentence");
 
     for (let i = 0; i < size; i++) {
+      const { controller, cancel } = timeoutAbort(perReqTimeoutMs);
       try {
         const r = await fetch(baseUrl.toString(), {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ difficulty, unit, chapter, direction }),
+          body: JSON.stringify({ difficulty, unit, chapter, direction, timeMode, timeText }),
+          signal: controller.signal
         });
+        cancel();
         if (r.ok) {
           const one = await r.json().catch(() => null);
           if (one) items.push(one);
         }
-      } catch {}
+      } catch (e) {
+        cancel();
+        // ignore timeouts / network hiccups; continue to next slot
+      }
     }
-    return json({ items });
+    return json({ items, sizeRequested: requestedSize, sizeReturned: items.length });
   } catch (err) {
     return json({ items: [], error: String(err?.message || err) }, 200);
   }
