@@ -3,8 +3,6 @@ import StudyShell from './components/StudyShell.jsx'
 import Home from './components/Home.jsx'
 import TranslateGame from './components/TranslateGame.jsx'
 import WordOrderGame from './components/WordOrderGame.jsx'
-import Drills from './components/Drills.jsx'
-import GrammarHub from './components/GrammarHub.jsx'
 import { signInWithGoogle, signOutUser, onAuthChanged, completeRedirectIfNeeded } from './lib/auth.js'
 
 export default function App(){
