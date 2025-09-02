@@ -1,10 +1,11 @@
+
 import { Card, CardBody, CardTitle, CardSub } from './ui/Card.jsx'
 import Progress from './ui/Progress.jsx'
 import Button from './ui/Button.jsx'
 
 export default function Home({ mastery=62, woAcc=84, onNav = ()=>{}, user = null }){
   return (
-    <div className="grid cols-3">
+    <div className="cards">
       <div className="card"><div className="card-body">
         <CardTitle>{user ? 'Placement' : 'Welcome'}</CardTitle>
         <CardSub>{user ? 'Overall Mastery' : 'Sign in to start'}</CardSub>
@@ -21,13 +22,15 @@ export default function Home({ mastery=62, woAcc=84, onNav = ()=>{}, user = null
       <div className="card"><div className="card-body">
         <CardTitle>Quick Start</CardTitle>
         <CardSub>{user ? 'Jump back in' : 'Try a mode (progress won’t save)'}</CardSub>
-        <div className="grid cols-2 mt-16">
-          <Button className="w-full" variant="brand" onClick={()=>onNav('translate')}>Translate</Button>
-          <Button className="w-full" onClick={()=>onNav('word-order')}>Word Order</Button>
-        </div>
-        <div className="grid cols-2 mt-16">
-          <Button className="w-full" onClick={()=>onNav('drills')}>Drills</Button>
-          <Button className="w-full" onClick={()=>onNav('grammar')}>Grammar Hub</Button>
+        <div className="mt-16">
+          <div className="flex gap-16">
+            <Button className="w-full" variant="brand" onClick={()=>onNav('translate')}>Translate</Button>
+            <Button className="w-full" onClick={()=>onNav('word-order')}>Word Order</Button>
+          </div>
+          <div className="flex gap-16 mt-16">
+            <Button className="w-full" onClick={()=>onNav('drills')}>Drills</Button>
+            <Button className="w-full" onClick={()=>onNav('grammar')}>Grammar Hub</Button>
+          </div>
         </div>
       </div></div>
 
