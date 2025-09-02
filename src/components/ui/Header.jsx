@@ -1,12 +1,13 @@
-import Button from './Button.jsx';
+// src/components/ui/Header.jsx
+import Button from './Button.jsx'
 
-export default function Header({ user, onLogout, onSettings, onSignIn, right=null }){
-  const initials = user?.displayName?.split(' ').map(s=>s[0]).join('').slice(0,2).toUpperCase()
-                  || user?.name?.split(' ').map(s=>s[0]).join('').slice(0,2).toUpperCase()
-                  || '';
+export default function Header({ user, onLogout, onSettings, onSignIn, right=null, compact=false }) {
+  const initials =
+    user?.displayName?.split(' ').map(s=>s[0]).join('').slice(0,2).toUpperCase() ||
+    user?.name?.split(' ').map(s=>s[0]).join('').slice(0,2).toUpperCase() || ''
 
   return (
-    <div className="header">
+    <div className={compact ? 'header header-compact' : 'header'}>
       <div className="header-inner">
         <div className="brand">
           <div className="brand-badge">ع</div>
@@ -14,8 +15,8 @@ export default function Header({ user, onLogout, onSettings, onSignIn, right=nul
         </div>
 
         <div className="header-actions">
-          {right}
-          {onSettings && <Button variant="ghost" onClick={onSettings}>Settings</Button>}
+          {!compact && right}
+          {onSettings && !compact && <Button variant="ghost" onClick={onSettings}>Settings</Button>}
 
           {user ? (
             <>
@@ -25,7 +26,11 @@ export default function Header({ user, onLogout, onSettings, onSignIn, right=nul
               {onLogout && <Button variant="ghost" onClick={onLogout}>Log out</Button>}
             </>
           ) : (
-            <Button data-qa="sign-in" variant="brand" onClick={() => { console.log('[ui] Sign in clicked'); onSignIn && onSignIn(); }}>
+            <Button
+              data-qa="sign-in"
+              variant="brand"
+              onClick={() => { onSignIn && onSignIn(); }}
+            >
               Sign in
             </Button>
           )}
