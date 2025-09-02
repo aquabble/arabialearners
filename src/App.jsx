@@ -26,8 +26,6 @@ export default function App(){
       {mode === 'home' && <Home onNav={setMode} user={user} />}
       {mode === 'translate' && <TranslateGame user={user} />}
       {mode === 'word-order' && <WordOrderGame user={user} />}
-      {mode === 'drills' && <Drills user={user} />}
-      {mode === 'grammar' && <GrammarHub />}
     </StudyShell>
   )
 }
