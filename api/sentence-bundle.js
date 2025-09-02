@@ -3,7 +3,6 @@ import OpenAI from "openai";
 export const config = { runtime: "edge" };
 const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
-// Reuse the same flattening logic you have in /api/sentence.js
 async function loadSemester(req) {
   const host = req.headers.get("host");
   const urls = [
@@ -33,23 +32,19 @@ function normalizeVocab(raw) {
         const en = (item && (item.en || item.english || item.translation || item.gloss)) || "";
         const AR = String(ar).trim();
         if (!AR) continue;
-        out.push({
-          ar: AR,
-          en: String(en || "").trim(),
-          unit: unitName,
-          chapter: chapterName,
-        });
+        out.push({ ar: AR, en: String(en || "").trim(), unit: unitName, chapter: chapterName });
       }
     }
   }
   return out;
 }
 
-function pickFocus(vocab, k=3) {
+function pickFocus(vocab, k = 3) {
   if (!vocab.length) return [];
   const picks = new Set();
   while (picks.size < Math.min(k, vocab.length)) {
-    picks.add(vocab[Math.floor(Math.random()*vocab.length)].ar);
+    picks.add(vocab[Math.floor(Math.random() * vocab.length)].ar);
+    if (picks.size >= 2) break;
   }
   return Array.from(picks);
 }
@@ -59,8 +54,8 @@ export default async function handler(req) {
     if (!process.env.OPENAI_API_KEY) {
       return new Response(JSON.stringify({ error: "OPENAI_API_KEY not set" }), { status: 400 });
     }
-    const body = await req.json().catch(()=>({}));
-    const { stage="SVO", unit="All", chapter="All", count=5 } = body;
+    const body = await req.json().catch(() => ({}));
+    const { stage = "SVO", unit = "All", chapter = "All", count = 5 } = body;
 
     const raw = await loadSemester(req);
     const all = normalizeVocab(raw);
@@ -71,13 +66,13 @@ export default async function handler(req) {
     let pool = all;
     if (unit && unit !== "All") pool = pool.filter(w => w.unit === unit);
     if (chapter && chapter !== "All") pool = pool.filter(w => w.chapter === chapter);
-    if (!pool.length) pool = all;
+    if (!pool.length) pool = all; // graceful fallback
 
-    // Build K focus groups to reduce round trips
-    const tasks = Array.from({length: Math.max(1, Math.min(10, count))}, () => pickFocus(pool, 3));
+    const tasks = Array.from({ length: Math.max(1, Math.min(10, count)) }, () => pickFocus(pool, 3));
 
+    // IMPORTANT: ask for an OBJECT with {items:[...]} to match json_object mode
     const system = `You generate Arabic↔English pairs for learners.
-Return STRICT JSON ARRAY where each item is: {"ar":"...", "en":"...", "tokens":["S","V","O","Time"]}.
+Return STRICT JSON: {"items":[{"ar":"...","en":"...","tokens":["S","V","O","Time"]}, ...]}.
 Constraints:
 - CEFR A1–A2
 - Stage: ${stage} (SV, SVO, or SVO+Time)
@@ -94,19 +89,21 @@ Constraints:
         { role: "system", content: system },
         { role: "user", content: JSON.stringify(user) }
       ],
-      // modest cap to reduce latency
-      max_tokens: 320
+      max_tokens: 400
     });
 
-    // Expecting: {"items":[{...},{...}]}
     const content = completion.choices?.[0]?.message?.content || "{}";
     let out;
     try { out = JSON.parse(content); } catch { out = {}; }
-    const items = Array.isArray(out.items) ? out.items : out.items ? [out.items] : [];
+
+    // Accept either {items:[...]} or (in case the model returns a bare array) [...]
+    let items = Array.isArray(out?.items) ? out.items : (Array.isArray(out) ? out : []);
     if (!items.length) {
-      // fallback: try to build minimal one from the pool
-      return new Response(JSON.stringify({ items: [] }), { headers: { "Content-Type": "application/json" } });
+      // last resort: synthesize a trivial single item from pool so UI never dies
+      const fallback = pool[Math.floor(Math.random() * pool.length)];
+      if (fallback) items = [{ ar: fallback.ar, en: fallback.en || "—", tokens: ["S","V","O"] }];
     }
+
     return new Response(JSON.stringify({ items }), { headers: { "Content-Type": "application/json" } });
   } catch (err) {
     if (err instanceof Response) return err;
