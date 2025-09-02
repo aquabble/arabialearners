@@ -1,4 +1,4 @@
-
+// src/components/Home.jsx
 import { Card, CardBody, CardTitle, CardSub } from './ui/Card.jsx'
 import Progress from './ui/Progress.jsx'
 import Button from './ui/Button.jsx'
@@ -26,10 +26,6 @@ export default function Home({ mastery=62, woAcc=84, onNav = ()=>{}, user = null
           <div className="flex gap-16">
             <Button className="w-full" variant="brand" onClick={()=>onNav('translate')}>Translate</Button>
             <Button className="w-full" onClick={()=>onNav('word-order')}>Word Order</Button>
-          </div>
-          <div className="flex gap-16 mt-16">
-            <Button className="w-full" onClick={()=>onNav('drills')}>Drills</Button>
-            <Button className="w-full" onClick={()=>onNav('grammar')}>Grammar Hub</Button>
           </div>
         </div>
       </div></div>
