@@ -12,7 +12,6 @@ export default function StudyShell({ user, mode, setMode, onSignIn, onLogout, ch
 
   const isGame = mode === 'translate' || mode === 'word-order'
 
-  // Toggle a body class for global game-mode styling (safe-area, padding, etc.)
   useEffect(() => {
     if (isGame) document.body.classList.add('game-mode')
     else document.body.classList.remove('game-mode')
@@ -23,9 +22,11 @@ export default function StudyShell({ user, mode, setMode, onSignIn, onLogout, ch
     <div className={isGame ? 'game-shell' : ''}>
       <Header
         user={user}
-        compact={isGame}          // ← compact header in games (no tabs in header)
+        compact={isGame}
         onSignIn={onSignIn}
         onLogout={onLogout}
+        onNav={setMode}      // ← pass navigation to header
+        items={items}        // ← menu items for dropdown
         right={isGame ? null : <div className="badge ok">Beta</div>}
       />
 
@@ -38,7 +39,6 @@ export default function StudyShell({ user, mode, setMode, onSignIn, onLogout, ch
           </div>
         )}
 
-        {/* Game frame gets edge-to-edge focus with less chrome */}
         <div className={isGame ? 'game-frame' : 'mt-16 cards'}>
           {children}
         </div>
