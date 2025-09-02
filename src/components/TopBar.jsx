@@ -1,5 +1,5 @@
 // src/components/TopBar.jsx
-import Button from './ui/Button.jsx'
+import Button from './ui/Button.jsx';
 
 export default function TopBar({ onNav, user }){
   return (
@@ -23,5 +23,5 @@ export default function TopBar({ onNav, user }){
         </nav>
       </div>
     </header>
-  )
+  );
 }
