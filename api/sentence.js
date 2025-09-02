@@ -1,78 +1,62 @@
-import OpenAI from "openai";
+// api/sentence.js
+export const config = { runtime: 'edge' }
+import OpenAI from 'openai'
 
-export const config = { runtime: "edge" };
-const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+function safe(v){ return String(v == null ? '' : v).trim() }
 
-function normalizeVocab(raw){
-  const out = [];
-  const units = Array.isArray(raw?.units) ? raw.units : [];
-  for (const u of units){
-    const U = u?.unit;
-    if (!U) continue;
-    const unitName = (U.name || U.id || "Unit").toString();
-    const chapters = Array.isArray(U.chapters) ? U.chapters : [];
-    for (const ch of chapters){
-      const chapterName = (ch?.name || ch?.id || "").toString();
-      const vocab = Array.isArray(ch?.vocab) ? ch.vocab : [];
-      for (const item of vocab){
-        const ar = (item && (item.ar || item.arabic || item.word)) || "";
-        const en = (item && (item.en || item.english || item.gloss)) || "";
-        if (ar && en) out.push({ ar, en, unitName, chapterName });
-      }
-    }
-  }
-  return out;
-}
-
-async function loadSemester(req){
-  const host = req.headers.get("host");
-  const urls = [
-    `https://${host}/semester1.json`,
-    `https://${host}/data/semester1.json`
-  ];
-  for (const url of urls){
-    const res = await fetch(url, { cache: "no-store" });
-    if (res.ok){
-      try { return await res.json(); } catch {}
-    }
-  }
-  throw new Response(JSON.stringify({ error: "semester1.json not found", tried: urls }), { status: 400 });
+function lengthHintFromDifficulty(d){
+  return d === 'short' ? 'Keep the Arabic sentence concise (≈5–7 words).'
+       : d === 'long'  ? 'Use a longer Arabic sentence (≈13–20 words).'
+       : 'Aim for a medium-length Arabic sentence (≈8–12 words).'
 }
 
 export default async function handler(req){
+  const url = new URL(req.url)
+  const debug = url.searchParams.get('debug') === '1'
   try{
-    if (req.method && req.method !== "POST"){
-      return new Response("Method Not Allowed", { status: 405 });
+    const key = (process.env && process.env.OPENAI_API_KEY) || ''
+    if(!key){
+      const payload = { error:'Missing OPENAI_API_KEY', where:'api/sentence' }
+      return new Response(JSON.stringify(payload), { status: debug ? 200 : 503, headers:{'content-type':'application/json'} })
     }
-    const { unit = "All", chapter = "All" } = await req.json();
-    const semester = await loadSemester(req);
-    const all = normalizeVocab(semester);
-    let pool = all;
-    if (unit && unit !== "All") pool = pool.filter(x => x.unitName === unit);
-    if (chapter && chapter !== "All") pool = pool.filter(x => x.chapterName === chapter);
-    if (!pool.length) pool = all;
-    const base = pool[Math.floor(Math.random()*pool.length)];
+    const client = new OpenAI({ apiKey: key })
 
-    // Optionally expand/enrich with OpenAI
-    let out = { ar: base.ar, en: base.en, tokens: [] };
-    if (process.env.OPENAI_API_KEY){
-      try{
-        const completion = await client.chat.completions.create({
-          model: "gpt-4o-mini",
-          temperature: 0.2,
-          response_format: { type: "json_object" },
-          messages: [
-            { role: "system", content: "Return JSON { ar:string, en:string, tokens:string[] } using the provided pair. Do not add explanations." },
-            { role: "user", content: JSON.stringify({ base }) }
-          ]
-        });
-        out = JSON.parse(completion.choices?.[0]?.message?.content || "{}");
-        if (!out?.ar || !out?.en) out = { ar: base.ar, en: base.en, tokens: [] };
-      } catch {}
+    const body = await req.json().catch(()=>({}))
+    const { unit='All', chapter='All', direction='ar2en', difficulty='medium', timeMode='none', timeText='' } = body || {}
+
+    const lengthHint = lengthHintFromDifficulty(difficulty)
+    const t = safe(timeText)
+    const timeHint = (timeMode === 'custom' && t) ? `Include the specific time expression: "${t}".`
+                    : (timeMode === 'none' ? 'Do not include any explicit time expression.' : 'Optionally include a natural time expression.')
+
+    const SYSTEM = `You are a helpful Arabic tutoring assistant.
+Generate an Arabic sentence and its English translation. ${lengthHint} ${timeHint}
+Constrain content to the requested unit/chapter if provided.
+
+Return strict JSON: { "ar": "...", "en": "...", "tokens": ["..."] }
+- tokens: list of key Arabic words used (strings).
+Avoid diacritics unless essential.`
+
+    const resp = await client.responses.create({
+      model: 'gpt-4o-mini',
+      input: [
+        { role:'system', content: SYSTEM },
+        { role:'user', content: `Unit: ${unit}\nChapter: ${chapter}\nDirection: ${direction}` }
+      ],
+      text: { format: "json" }
+    })
+
+    let data = {}
+    try{ data = JSON.parse(resp.output_text || '{}') }catch{}
+
+    const out = {
+      ar: safe(data.ar),
+      en: safe(data.en),
+      tokens: Array.isArray(data.tokens) ? data.tokens : []
     }
-    return new Response(JSON.stringify(out), { headers: { "Content-Type": "application/json" } });
-  }catch(err){
-    if (err instanceof Response) return err;
-    return new Response(JSON.stringify({ error: String(err) }), { status: 500 });
+    return new Response(JSON.stringify(out), { status: 200, headers:{'content-type':'application/json'} })
+  }catch(e){
+    const payload = { error: String(e?.message || e), where:'api/sentence' }
+    return new Response(JSON.stringify(payload), { status: debug ? 200 : 500, headers:{'content-type':'application/json'} })
   }
 }
