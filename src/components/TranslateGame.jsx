@@ -25,7 +25,7 @@ export default function TranslateGame({ user }){
 
   // queues per (stage,unit,chapter)
   const queuesRef = useRef(new Map())
-  const inflightRef = useRef(null) 
+  const inflightRef = useRef(null)
   const scopeKey = (s=stage,u=unit,c=chapter) => `${s}__${u}__${c}`
 
   async function fetchUnitChapterOptions(){
@@ -72,12 +72,14 @@ export default function TranslateGame({ user }){
       const res = await fetch(`${API_BASE}/api/sentence-bundle`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ stage, unit, chapter, count: size, scopeKey: key }),
+        // FIX: the API expects `size`, not `count`
+        body: JSON.stringify({ stage, unit, chapter, size, scopeKey: key }),
         signal: controller.signal
       })
       if (!res.ok) throw new Error(`bundle ${res.status}: ${await res.text()}`)
       const data = await res.json()
-      if (data.scopeKey !== key) return // ignore stale
+      // FIX: only compare when server sends scopeKey (current endpoint doesn't)
+      if (data.scopeKey && data.scopeKey !== key) return
       const items = Array.isArray(data.items) ? data.items : []
       const q = queuesRef.current.get(key) || []
       q.push(...items)
@@ -93,6 +95,7 @@ export default function TranslateGame({ user }){
     const q = queuesRef.current.get(key) || []
     if (q.length < min && !inflightRef.current){
       const size = q.length === 0 ? 3 : 5
+      // already guarded; AbortError won’t surface
       prefetch(size).catch(()=>{})
     }
   }
@@ -102,7 +105,15 @@ export default function TranslateGame({ user }){
     const key = scopeKey()
     let q = queuesRef.current.get(key) || []
     if (q.length === 0){
-      await prefetch(3)
+      // FIX: guard against AbortError / timeout so console stays clean
+      try {
+        await prefetch(3)
+      } catch (e) {
+        if (e?.name !== 'AbortError') {
+          // Non-abort errors can show as a note to user
+          setErr(`Prefetch error: ${String(e)}`)
+        }
+      }
       q = queuesRef.current.get(key) || []
     }
     const item = q.shift()
@@ -122,6 +133,7 @@ export default function TranslateGame({ user }){
     abortInflight()
     const key = scopeKey()
     queuesRef.current.set(key, [])
+    // we intentionally don't await; showNext handles its own errors
     showNext()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [stage, unit, chapter])
