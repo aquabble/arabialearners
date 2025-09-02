@@ -1,53 +1,72 @@
-import OpenAI from "openai";
-export const config = { runtime: "edge" };
-const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+// Hotfix wrapper for /api/grade: concurrency cap + singleflight + timeout
+import originalHandler from "./grade.inner.js";
+import { acquireSemaphore, releaseSemaphore } from "./_semaphore.js";
+import { hashKey, getCached, setCached, withSingleflight } from "./_cache.js";
+import { withTimeout } from "./_withTimeout.js";
 
-// Arabic normalization helpers
-const HARKAT = /[\u0610-\u061A\u064B-\u065F\u0670\u06D6-\u06ED]/g;
-const TATWEEL = /\u0640/g;
-const normAR = (s) => String(s||"").normalize("NFKC").replace(HARKAT,"").replace(TATWEEL,"").trim();
-const normEN = (s) => String(s||"").toLowerCase().replace(/\s+/g,' ').trim();
+let checkLimit = null;
+try { const mod = await import("./_ratelimit.js"); checkLimit = mod.checkLimit; } catch {}
 
-function json(data, status=200){ return new Response(JSON.stringify(data), { status, headers: { "Content-Type": "application/json" } }); }
-
-export default async function handler(req){
-  if (req.method !== "POST") return json({ error: "Method Not Allowed" }, 405);
-  let body;
-  try { body = await req.json(); } catch { return json({ error: "Bad JSON" }, 400); }
-
-  const { direction = "ar2en", guess = "", referenceAr = "", referenceEn = "" } = body || {};
-  const key = (process.env && process.env.OPENAI_API_KEY) || "";
-  if (!key) return json({ error: "Server missing OPENAI_API_KEY" }, 500);
-
-  // quick normalized exact checks
-  if (direction === "ar2en" && normEN(guess) && normEN(referenceEn) && normEN(guess) === normEN(referenceEn)) {
-    return json({ verdict: "correct", hint: "Exact match (normalized)." });
+function json(obj, status=200, extra={}) {
+  return new Response(JSON.stringify(obj), {
+    status,
+    headers: { "content-type": "application/json; charset=utf-8", ...extra }
+  });
+}
+function jsonString(raw, status=200) {
+  try {
+    const parsed = JSON.parse(raw);
+    return json(parsed, status);
+  } catch {
+    return new Response(raw, { status, headers: { "content-type":"application/json; charset=utf-8" } });
   }
-  if (direction === "en2ar" && normAR(guess) && normAR(referenceAr) && normAR(guess) === normAR(referenceAr)) {
-    return json({ verdict: "correct", hint: "مطابقة تامة بعد التطبيع." });
+}
+
+export default async function handler(req, ...args) {
+  // 1) Per-IP rate limit (fail-open)
+  if (checkLimit) {
+    try { const r = await checkLimit(req); if (!r.success) return json({ error:"Too many requests" }, 429); } catch {}
   }
 
-  const system = `You are an Arabic↔English tutor.
-  Return STRICT JSON with keys exactly: {"verdict":"correct|minor|wrong","hint":"short helpful hint"}.
-  Be concise. Consider minor spelling variants. Ignore Arabic diacritics (harakat).`;
+  // 2) Build a stable key for de-dup/cache
+  let body = {};
+  try { if (req?.method === "POST") body = await req.clone().json(); } catch {}
+  const method = req?.method || "GET";
+  const url = (req?.url || "").replace(/\?.*$/, "");
+  const partial = Object.fromEntries(Object.entries(body||{}).slice(0,20));
+  const keyBase = hashKey(["grade", method, url, partial]);
+  const cacheKey = `cache:grade:${keyBase}`;
+  const flightKey = `inflight:grade:${keyBase}`;
 
-  const user = {
-    direction, guess, referenceAr, referenceEn
-  };
+  // 3) Serve from cache if available
+  const cached = await getCached(cacheKey);
+  if (cached) return jsonString(cached, 200);
 
-  try{
-    const resp = await client.chat.completions.create({
-      model: "gpt-4o-mini",
-      temperature: 0.2,
-      response_format: { type: "json_object" },
-      messages: [
-        { role: "system", content: system },
-        { role: "user", content: JSON.stringify(user) }
-      ]
+  // 4) Global concurrency semaphore just for grading
+  const sem = await acquireSemaphore("sem:grade:global", 8, 45000);
+  if (!sem) return json({ error: "Busy, please retry shortly." }, 429, { "Retry-After": "3" });
+
+  try {
+    // 5) Coalesce identical requests; hard timeout at ~25s to avoid 504s
+    const result = await withSingleflight(flightKey, 45, async () => {
+      const resp = await withTimeout(
+        originalHandler(req, ...args),
+        25000,
+        () => json({ error: "Timeout while grading" }, 504)
+      );
+      const status = resp?.status ?? 200;
+      let text = "";
+      try { text = await resp.text(); } catch {}
+      if (status >= 200 && status < 300 && text) {
+        try { await setCached(cacheKey, text, 60 * 60); } catch {}
+      }
+      // if original timed out and returned a Response above, bubble it up as text
+      if (text) return text;
+      return JSON.stringify({ ok:false, error:"Timeout while grading" });
     });
-    const content = resp.choices?.[0]?.message?.content || "{}";
-    return new Response(content, { headers: { "Content-Type": "application/json" } });
-  }catch(e){
-    return json({ error: String(e?.message || e) }, 502);
+
+    return jsonString(result || "{}", 200);
+  } finally {
+    await releaseSemaphore(sem);
   }
 }
