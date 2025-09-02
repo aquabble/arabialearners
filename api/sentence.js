@@ -1,53 +1,74 @@
-import OpenAI from "openai";
-export const config = { runtime: "edge" };
-const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+// Auto-generated hotfix wrapper: concurrency cap + cache + singleflight
+import originalHandler from "./sentence.inner.js";
+import { acquireSemaphore, releaseSemaphore } from "./_semaphore.js";
+import { hashKey, getCached, setCached, withSingleflight } from "./_cache.js";
+let checkLimit = null;
+try { const mod = await import("./_ratelimit.js"); checkLimit = mod.checkLimit; } catch {}
 
-function json(data, status=200){ return new Response(JSON.stringify(data), { status, headers: { "Content-Type": "application/json" } }); }
-const safe = (v)=> String(v == null ? "" : v).trim();
+export default async function handler(req, ...args) {
+  // Per-IP rate limit if available (fail-open)
+  if (checkLimit) {
+    try {
+      const res = await checkLimit(req);
+      if (!res.success) return json({ error: "Too many requests" }, 429);
+    } catch {}
+  }
 
-function lengthHintFromDifficulty(d){
-  return d === "short" ? "Keep the Arabic sentence concise (≈5–7 words)."
-       : d === "long"  ? "Use a longer Arabic sentence (≈13–20 words)."
-       : "Aim for a medium-length Arabic sentence (≈8–12 words).";
+  // Read minimal body and build stable key
+  let body = {};
+  try {
+    if (req?.method === "POST" || req?.method === "PUT") {
+      body = await req.json();
+    }
+  } catch {}
+  const url = (req?.url) || "";
+  const method = (req?.method) || "GET";
+  const partial = Object.fromEntries(Object.entries(body || {}).slice(0, 20));
+  const keyBase = hashKey(["sentence-endpoint", method, url.replace(/\?.*$/, ""), partial]);
+
+  // Serve from cache
+  const cacheKey = `cache:bundle:${keyBase}`;
+  const cached = await getCached(cacheKey);
+  if (cached) return jsonString(cached, 200, true);
+
+  // Global concurrency cap
+  const sem = await acquireSemaphore("sem:sentence:global", 6, 45000);
+  if (!sem) return json({ error: "Busy, please retry shortly." }, 429, { "Retry-After": "3" });
+
+  try {
+    // Singleflight: only one identical request hits the model
+    const flightKey = `inflight:bundle:${keyBase}`;
+    const serialized = await withSingleflight(flightKey, 45, async () => {
+      const resp = await originalHandler(req, ...args);
+      const status = resp?.status ?? 200;
+      let text = "";
+      try { text = await resp.text(); } catch {}
+      if (status >= 200 && status < 300 && text) {
+        try { await setCached(cacheKey, text, 6 * 60 * 60); } catch {}
+      }
+      return text || "{}";
+    });
+
+    return jsonString(serialized || "{}", 200, false);
+  } finally {
+    await releaseSemaphore(sem);
+  }
 }
 
-export default async function handler(req){
-  if (req.method !== "POST") return json({ error:"Method Not Allowed" }, 405);
-  let body; try{ body = await req.json(); }catch{ return json({ error:"Bad JSON" }, 400); }
-
-  const { difficulty="medium", unit="All", chapter="All", direction="ar2en", topic="" } = body || {};
-  const key = (process.env && process.env.OPENAI_API_KEY) || "";
-  if (!key) return json({ error:"Server missing OPENAI_API_KEY" }, 500);
-
-  const system = `You generate one Arabic↔English sentence pair for learners.
-  Output STRICT JSON: {"ar": "...", "en": "...", "tokens": {"ar": string[], "en": string[]}}.
-  Tokens must be whitespace-separated word tokens, no punctuation-only tokens.
-  Keep content classroom-safe and general.`;
-
-  const lengthHint = lengthHintFromDifficulty(difficulty);
-  const user = {
-    direction, unit, chapter, topic,
-    instruction: `Make a sentence relevant to "${unit}/${chapter}"${topic?` on "${topic}"`:""}. ${lengthHint}`
-  };
-
-  try{
-    const resp = await client.chat.completions.create({
-      model: "gpt-4o-mini",
-      temperature: 0.3,
-      response_format: { type: "json_object" },
-      messages: [
-        { role: "system", content: system },
-        { role: "user", content: JSON.stringify(user) }
-      ]
-    });
-    let content = resp.choices?.[0]?.message?.content || "{}";
-    let out; try{ out = JSON.parse(content) }catch{ out = {}; }
-    const ar = safe(out.ar);
-    const en = safe(out.en);
-    let tokensAr = Array.isArray(out?.tokens?.ar) ? out.tokens.ar : ar.split(/\s+/).filter(Boolean);
-    let tokensEn = Array.isArray(out?.tokens?.en) ? out.tokens.en : en.split(/\s+/).filter(Boolean);
-    return json({ ar, en, tokens: { ar: tokensAr, en: tokensEn } });
-  }catch(e){
-    return json({ error: String(e?.message || e) }, 502);
-  }
+function json(obj, status = 200, extra = {}) {
+  return new Response(JSON.stringify(obj), {
+    status,
+    headers: { "content-type": "application/json; charset=utf-8", ...extra }
+  });
+}
+function jsonString(raw, status = 200, cached = false) {
+  const headers = { "content-type": "application/json; charset=utf-8" };
+  try {
+    const parsed = JSON.parse(raw);
+    if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+      parsed.cached = cached || parsed.cached;
+      return new Response(JSON.stringify(parsed), { status, headers });
+    }
+  } catch {}
+  return new Response(raw, { status, headers });
 }
