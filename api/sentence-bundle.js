@@ -1,8 +1,7 @@
 // api/sentence-bundle.js
 export const config = { runtime: 'edge' }
 
-import OpenAI from 'openai'
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
+import { json, getOpenAI, safeText } from './_utils.js'
 
 function lengthHintFromDifficulty(difficulty){
   switch(difficulty){
@@ -14,7 +13,7 @@ function lengthHintFromDifficulty(difficulty){
 
 export default async function handler(req){
   try{
-    const body = await req.json()
+    const body = await req.json().catch(()=>({}))
     const {
       unit = 'All',
       chapter = 'All',
@@ -25,9 +24,13 @@ export default async function handler(req){
       size = 3
     } = body || {}
 
+    const { client, error } = getOpenAI()
+    if (error) return json({ error, hint: 'Set OPENAI_API_KEY in your Vercel project settings.' }, 503)
+
     const lengthHint = lengthHintFromDifficulty(difficulty)
-    const timeHint = (timeMode === 'custom' && (timeText||'').trim())
-      ? `Include the specific time expression: "${(timeText||'').trim()}".`
+    const tText = safeText(timeText)
+    const timeHint = (timeMode === 'custom' && tText)
+      ? `Include the specific time expression: "${tText}".`
       : (timeMode === 'none'
           ? 'Do not include any explicit time expression.'
           : 'Optionally include a natural time expression.'
@@ -43,39 +46,28 @@ Avoid diacritics unless essential.`
 
     const userBase = `Unit: ${unit}\nChapter: ${chapter}\nDirection: ${direction}`
 
-    const tasks = Array.from({length: Math.max(1, Math.min(10, Number(size)||3))}, (_, i) => ({
-      role: 'user', content: userBase + `\n#${i+1}`
-    }))
-
-    // Batch create with one multi-turn call where possible; fall back to N calls if needed
+    const n = Math.max(1, Math.min(10, Number(size) || 3))
     const items = []
-    for (let i = 0; i < tasks.length; i++) {
-      const resp = await openai.responses.create({
+    for (let i=0; i<n; i++){
+      const resp = await client.responses.create({
         model: 'gpt-4o-mini',
         response_format: { type: 'json_object' },
         input: [
           { role: 'system', content: SYSTEM },
-          tasks[i]
+          { role: 'user', content: userBase + `\n#${i+1}` }
         ]
       })
-      const text = resp.output_text || '{}'
-      let data
-      try { data = JSON.parse(text) } catch { data = {} }
+      let data = {}
+      try { data = JSON.parse(resp.output_text || '{}') } catch {}
       items.push({
-        ar: String(data.ar || '').trim(),
-        en: String(data.en || '').trim(),
+        ar: safeText(data.ar),
+        en: safeText(data.en),
         tokens: Array.isArray(data.tokens) ? data.tokens : []
       })
     }
 
-    return new Response(JSON.stringify({ items }), {
-      status: 200,
-      headers: { 'content-type': 'application/json' }
-    })
+    return json({ items })
   }catch(e){
-    return new Response(JSON.stringify({ error: String(e) }), {
-      status: 500,
-      headers: { 'content-type': 'application/json' }
-    })
+    return json({ error: String(e && e.message || e) }, 500)
   }
 }
