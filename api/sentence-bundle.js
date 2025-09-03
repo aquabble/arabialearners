@@ -1,13 +1,9 @@
-// Wrapper with optional rate limit + singleflight + caching.
-// Kept intentionally small and dependency-light.
+// Wrapper with optional rate limit + singleflight, no top-level await.
 import originalHandler from "./sentence-bundle.inner.js";
-
-let checkLimit = null;
-try { const mod = await import("./_ratelimit.js"); checkLimit = mod.checkLimit; } catch {}
 
 export const config = { runtime: "edge" };
 
-// Minimal singleflight keyed by body hash (in-memory Map for edge runtime)
+// Minimal singleflight keyed by body hash (in-memory Map)
 const inflight = new Map();
 
 function toJson(obj, status=200, extra={}) {
@@ -26,8 +22,20 @@ function hashBody(obj) {
   catch { return "x"; }
 }
 
+let checkLimitPromise = null;
+async function getCheckLimit() {
+  if (checkLimitPromise) return checkLimitPromise;
+  try {
+    checkLimitPromise = import("./_ratelimit.js").then(m => m.checkLimit).catch(() => null);
+    return await checkLimitPromise;
+  } catch {
+    return null;
+  }
+}
+
 export default async function handler(req) {
-  // Per-IP limit (best-effort, fail-open on errors)
+  // Per-IP rate limit (best-effort, fail-open)
+  const checkLimit = await getCheckLimit();
   if (checkLimit) {
     try {
       const res = await checkLimit(req);
@@ -35,23 +43,21 @@ export default async function handler(req) {
     } catch {}
   }
 
-  // Singleflight: dedupe concurrent identical requests
+  // Singleflight
   const body = await readBody(req);
   const key = hashBody(body);
   if (inflight.has(key)) {
     try { return await inflight.get(key); }
-    catch { /* fallthrough to new execution */ }
+    catch { /* fallthrough */ }
   }
   const exec = (async () => {
-    // Recreate a Request with the same URL and JSON body for the inner handler
     const r2 = new Request(req.url, {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify(body)
     });
     try {
-      const res = await originalHandler(r2);
-      return res;
+      return await originalHandler(r2);
     } catch (err) {
       return toJson({ error: String(err?.message || err) }, 500);
     } finally {
