@@ -1,6 +1,4 @@
-// Robust sentence-fast: longer timeouts, tolerant archive, randomized fallback, source header.
-// Works on Edge (no top-level await).
-
+// sentence-fast: archive cleanup so fallbacks look natural (Arabic-only), plus existing logic.
 import { json } from "./_json.js";
 
 export const config = { runtime: "edge" };
@@ -89,15 +87,28 @@ Keep it brief and natural. Variation tag: ${nonce}.`;
   }
 }
 
+// --- Archive helpers (Arabic-only clean output) ---
+const AR_LETTER = /[\u0600-\u06FF]/;
+const AR_WORD_RE = /^[\u0600-\u06FF]+$/;
+function cleanToArabicTokens(s) {
+  if (!s) return [];
+  return s.split(/[^\u0600-\u06FF]+/).filter(Boolean);
+}
+
 function extractWords(data) {
   const out = new Set();
-  const push = (v) => { const s = String(v || "").trim(); if (s) out.add(s); };
+  const push = (v) => {
+    if (typeof v !== "string") return;
+    if (!AR_LETTER.test(v)) return;
+    const parts = cleanToArabicTokens(v);
+    parts.forEach(p => { if (AR_WORD_RE.test(p)) out.add(p); });
+  };
   const visit = (x) => {
     if (!x) return;
     if (typeof x === "string") return push(x);
     if (Array.isArray(x)) return x.forEach(visit);
     if (typeof x === "object") {
-      push(x.ar); push(x.arabic); push(x.word); push(x.text);
+      push(x.ar); push(x.arabic); push(x.word); push(x.text); push(x.root);
       for (const v of Object.values(x)) visit(v);
     }
   };
@@ -105,14 +116,17 @@ function extractWords(data) {
   return Array.from(out);
 }
 
-const BUILTIN_WORDS = ["مرحبا","وقت","درس","سهل","مباشر","كتاب","قلم","بيت","مدرسة","صباح","مساء"];
-
-function randomSentenceFrom(words) {
-  const pool = words && words.length ? words : BUILTIN_WORDS;
-  const n = Math.max(3, Math.min(8, Math.floor(Math.random()*6)+3));
-  const bag = [];
-  for (let i=0; i<n; i++) bag.push(pool[Math.floor(Math.random()*pool.length)]);
-  return bag.join(" ");
+function formatArchiveSentence(words) {
+  const pool = words && words.length ? words : ["تمرين","سهل","قصير"];
+  const pick = (n) => {
+    const arr = [];
+    for (let i=0;i<n;i++) arr.push(pool[Math.floor(Math.random()*pool.length)]);
+    return arr;
+  };
+  const [w1,w2] = pick(2);
+  const ar = `هذا ${w1} ${w2}.`;
+  const en = "Practice sentence from archive.";
+  return { ar, en };
 }
 
 async function tryArchiveFallback(req, body, timeoutMs=4000) {
@@ -126,9 +140,8 @@ async function tryArchiveFallback(req, body, timeoutMs=4000) {
     if (!r.ok) return null;
     const data = await r.json().catch(()=>null);
     const words = extractWords(data);
-    const ar = randomSentenceFrom(words);
-    const en = "Practice sentence from archive words.";
-    return shape({ ar, en }, body, "archive");
+    const pair = formatArchiveSentence(words);
+    return shape(pair, body, "archive");
   } catch {
     return null;
   }
@@ -136,9 +149,9 @@ async function tryArchiveFallback(req, body, timeoutMs=4000) {
 
 function ultimateFallback(body) {
   const candidates = [
-    { ar: "تمرين قصير قبل الدرس", en: "A short practice before the lesson." },
-    { ar: "جملة بسيطة للتدريب", en: "A simple sentence for practice." },
-    { ar: "نكتب جملة ثم نراجعها", en: "We write a sentence then review it." }
+    { ar: "تمرين قصير قبل الدرس.", en: "A short practice before the lesson." },
+    { ar: "جملة بسيطة للتدريب.", en: "A simple sentence for practice." },
+    { ar: "نكتب جملة ثم نراجعها.", en: "We write a sentence then review it." }
   ];
   const pick = candidates[Math.floor(Math.random()*candidates.length)];
   return shape(pick, body, "ultimate");
