@@ -1,4 +1,6 @@
-// Stronger sentence-fast: robust archive, longer timeouts, randomized ultimate, and source header.
+// Robust sentence-fast: longer timeouts, tolerant archive, randomized fallback, source header.
+// Works on Edge (no top-level await).
+
 import { json } from "./_json.js";
 
 export const config = { runtime: "edge" };
@@ -23,7 +25,7 @@ function withHeader(res, source) {
   return new Response(res.body, { status: res.status, headers });
 }
 
-async function tryProxyOriginal(req, body, timeoutMs=4000) {
+async function tryProxyOriginal(req, body, timeoutMs=5000) {
   try {
     const base = new URL(req.url);
     base.pathname = "/api/sentence";
@@ -45,18 +47,22 @@ async function tryProxyOriginal(req, body, timeoutMs=4000) {
   }
 }
 
-async function tryOpenAI(body, timeoutMs=5000) {
+async function tryOpenAI(body, timeoutMs=15000) {
   try {
     if (!process.env.OPENAI_API_KEY) return null;
+    const nonce = Math.random().toString(36).slice(2, 8);
     const sys = "You generate short bilingual sentence pairs. Output compact, natural text.";
-    const content = `Generate a JSON object with keys \"ar\", \"en\". Direction: ${body?.direction||"ar2en"}. Difficulty: ${body?.difficulty||"medium"}. Keep it short.`;
+    const content = `Return ONLY JSON with keys \"ar\", \"en\".
+Direction: ${body?.direction||"ar2en"}; difficulty: ${body?.difficulty||"medium"}.
+Keep it brief and natural. Variation tag: ${nonce}.`;
     const payload = {
       model: "gpt-4o-mini",
       messages: [
         { role: "system", content: sys },
         { role: "user", content: [{ type: "text", text: content }] }
       ],
-      temperature: 0.6,
+      temperature: 0.9,
+      top_p: 0.95,
       max_tokens: 80
     };
     const ac = new AbortController();
@@ -99,7 +105,7 @@ function extractWords(data) {
   return Array.from(out);
 }
 
-const BUILTIN_WORDS = ["مرحبا","دقيقة","تمرين","سهل","مباشر","اليوم","كتاب","درس","وقت","ماء","قلم","بيت","مدرسة"];
+const BUILTIN_WORDS = ["مرحبا","وقت","درس","سهل","مباشر","كتاب","قلم","بيت","مدرسة","صباح","مساء"];
 
 function randomSentenceFrom(words) {
   const pool = words && words.length ? words : BUILTIN_WORDS;
@@ -109,7 +115,7 @@ function randomSentenceFrom(words) {
   return bag.join(" ");
 }
 
-async function tryArchiveFallback(req, body, timeoutMs=2500) {
+async function tryArchiveFallback(req, body, timeoutMs=4000) {
   try {
     const origin = new URL(req.url).origin;
     const url = `${origin}/semester1.json`;
@@ -130,8 +136,8 @@ async function tryArchiveFallback(req, body, timeoutMs=2500) {
 
 function ultimateFallback(body) {
   const candidates = [
-    { ar: "تدريب سهل ومباشر", en: "A simple, direct practice sentence." },
     { ar: "تمرين قصير قبل الدرس", en: "A short practice before the lesson." },
+    { ar: "جملة بسيطة للتدريب", en: "A simple sentence for practice." },
     { ar: "نكتب جملة ثم نراجعها", en: "We write a sentence then review it." }
   ];
   const pick = candidates[Math.floor(Math.random()*candidates.length)];
@@ -143,26 +149,15 @@ export default async function handler(req) {
     const body = await req.json().catch(()=> ({}));
 
     const v1 = await tryProxyOriginal(req, body);
-    if (v1) {
-      const res = json(v1);
-      return withHeader(res, "proxy");
-    }
+    if (v1) return withHeader(json(v1), "proxy");
 
     const v2 = await tryOpenAI(body);
-    if (v2) {
-      const res = json(v2);
-      return withHeader(res, "openai");
-    }
+    if (v2) return withHeader(json(v2), "openai");
 
     const v3 = await tryArchiveFallback(req, body);
-    if (v3) {
-      const res = json(v3);
-      return withHeader(res, "archive");
-    }
+    if (v3) return withHeader(json(v3), "archive");
 
-    const v4 = ultimateFallback(body);
-    const res = json(v4);
-    return withHeader(res, "ultimate");
+    return withHeader(json(ultimateFallback(body)), "ultimate");
   } catch (err) {
     return json({ error: String(err?.message || err) }, 500);
   }
