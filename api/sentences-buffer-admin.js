@@ -9,6 +9,13 @@ function json(obj, status=200) {
 }
 
 export default async function handler(req) {
+  // --- Added auth guard: require X-API-Key header matching process.env.ADMIN_KEY ---
+const API_KEY = process.env.ADMIN_KEY;
+if (!API_KEY) return json({ error: "Server misconfigured: missing ADMIN_KEY" }, 500);
+const provided = req.headers.get("x-api-key") || "";
+if (provided !== API_KEY) return json({ error: "Unauthorized" }, 401);
+// --- End guard ---
+
   const url = new URL(req.url);
   const action = url.searchParams.get("action") || "size";
   const semester = url.searchParams.get("semester") || "0";
