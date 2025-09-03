@@ -1,74 +1,63 @@
-// Auto-generated hotfix wrapper: concurrency cap + cache + singleflight
+// Wrapper with optional rate limit + singleflight + caching.
+// Kept intentionally small and dependency-light.
 import originalHandler from "./sentence-bundle.inner.js";
-import { acquireSemaphore, releaseSemaphore } from "./_semaphore.js";
-import { hashKey, getCached, setCached, withSingleflight } from "./_cache.js";
+
 let checkLimit = null;
 try { const mod = await import("./_ratelimit.js"); checkLimit = mod.checkLimit; } catch {}
 
-export default async function handler(req, ...args) {
-  // Per-IP rate limit if available (fail-open)
-  if (checkLimit) {
-    try {
-      const res = await checkLimit(req);
-      if (!res.success) return json({ error: "Too many requests" }, 429);
-    } catch {}
-  }
+export const config = { runtime: "edge" };
 
-  // Read minimal body and build stable key
-  let body = {};
-  try {
-    if (req?.method === "POST" || req?.method === "PUT") {
-      body = await req.json();
-    }
-  } catch {}
-  const url = (req?.url) || "";
-  const method = (req?.method) || "GET";
-  const partial = Object.fromEntries(Object.entries(body || {}).slice(0, 20));
-  const keyBase = hashKey(["sentence-endpoint", method, url.replace(/\?.*$/, ""), partial]);
+// Minimal singleflight keyed by body hash (in-memory Map for edge runtime)
+const inflight = new Map();
 
-  // Serve from cache
-  const cacheKey = `cache:bundle:${keyBase}`;
-  const cached = await getCached(cacheKey);
-  if (cached) return jsonString(cached, 200, true);
-
-  // Global concurrency cap
-  const sem = await acquireSemaphore("sem:sentence:global", 6, 45000);
-  if (!sem) return json({ error: "Busy, please retry shortly." }, 429, { "Retry-After": "3" });
-
-  try {
-    // Singleflight: only one identical request hits the model
-    const flightKey = `inflight:bundle:${keyBase}`;
-    const serialized = await withSingleflight(flightKey, 45, async () => {
-      const resp = await originalHandler(req, ...args);
-      const status = resp?.status ?? 200;
-      let text = "";
-      try { text = await resp.text(); } catch {}
-      if (status >= 200 && status < 300 && text) {
-        try { await setCached(cacheKey, text, 6 * 60 * 60); } catch {}
-      }
-      return text || "{}";
-    });
-
-    return jsonString(serialized || "{}", 200, false);
-  } finally {
-    await releaseSemaphore(sem);
-  }
-}
-
-function json(obj, status = 200, extra = {}) {
+function toJson(obj, status=200, extra={}) {
   return new Response(JSON.stringify(obj), {
     status,
     headers: { "content-type": "application/json; charset=utf-8", ...extra }
   });
 }
-function jsonString(raw, status = 200, cached = false) {
-  const headers = { "content-type": "application/json; charset=utf-8" };
-  try {
-    const parsed = JSON.parse(raw);
-    if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
-      parsed.cached = cached || parsed.cached;
-      return new Response(JSON.stringify(parsed), { status, headers });
+
+async function readBody(req) {
+  try { return await req.json(); } catch { return {}; }
+}
+
+function hashBody(obj) {
+  try { return btoa(unescape(encodeURIComponent(JSON.stringify(obj)))).slice(0, 64); }
+  catch { return "x"; }
+}
+
+export default async function handler(req) {
+  // Per-IP limit (best-effort, fail-open on errors)
+  if (checkLimit) {
+    try {
+      const res = await checkLimit(req);
+      if (!res.success) return toJson({ error: "Too many requests" }, 429);
+    } catch {}
+  }
+
+  // Singleflight: dedupe concurrent identical requests
+  const body = await readBody(req);
+  const key = hashBody(body);
+  if (inflight.has(key)) {
+    try { return await inflight.get(key); }
+    catch { /* fallthrough to new execution */ }
+  }
+  const exec = (async () => {
+    // Recreate a Request with the same URL and JSON body for the inner handler
+    const r2 = new Request(req.url, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(body)
+    });
+    try {
+      const res = await originalHandler(r2);
+      return res;
+    } catch (err) {
+      return toJson({ error: String(err?.message || err) }, 500);
+    } finally {
+      inflight.delete(key);
     }
-  } catch {}
-  return new Response(raw, { status, headers });
+  })();
+  inflight.set(key, exec);
+  return exec;
 }
