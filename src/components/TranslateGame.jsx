@@ -1,224 +1,164 @@
-// src/components/TranslateGame.jsx
-import { useEffect, useRef, useState } from 'react'
-import { Card, CardBody, CardTitle, CardSub } from './ui/Card.jsx'
-import Button from './ui/Button.jsx'
-import Input from './ui/Input.jsx'
-import { API_BASE } from '../lib/apiBase.js'
-import { recordResult } from '../lib/wordStats.js'
+import React, { useEffect, useMemo, useRef, useState } from "react";
+import { API_BASE } from "../lib/apiBase";
 
-export default function TranslateGame({ user }){
-  const [difficulty, setDifficulty] = useState('medium')  // short | medium | long
-  const [unit, setUnit] = useState('All')
-  const [chapter, setChapter] = useState('All')
-  const [direction, setDirection] = useState('ar2en')
+const sleep = (ms) => new Promise(r => setTimeout(r, ms));
+const randid = () => (typeof crypto?.randomUUID === "function" ? crypto.randomUUID() : Math.random().toString(36).slice(2));
+function isPair(x){ return x && typeof x === "object" && x.ar && x.en; }
+function normUnit(u){ return (!u || u === "All") ? null : u; }
+function normChapter(c){ return (!c || c === "All") ? null : c; }
+function makeScopeKey({ difficulty, unit, chapter, timeMode, timeText, direction }) {
+  const u = normUnit(unit);
+  const ch = normChapter(chapter);
+  const tt = (timeText || "").trim();
+  return [difficulty, u, ch, timeMode, tt, direction].join("__");
+}
 
-  const [timeMode, setTimeMode] = useState('none') // none | custom
-  const [timeText, setTimeText] = useState('')
+async function fetchBundle({ difficulty, unit, chapter, size=3, timeMode="none", timeText="", direction="ar2en" }, timeoutMs=20000) {
+  const body = { difficulty, unit: unit || "All", chapter: chapter || "All", size, timeMode, timeText, direction };
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort("timeout"), timeoutMs);
+  try {
+    const res = await fetch(`/api/sentence-bundle`, {
+      method: "POST",
+      headers: { "content-type": "application/json", "x-nonce": randid() },
+      body: JSON.stringify(body),
+      signal: ctrl.signal
+    });
+    clearTimeout(timer);
+    if (res.status === 429) {
+      const retry = Number(res.headers.get("retry-after")) || 2;
+      await sleep(retry * 1000);
+      return await fetchBundle({ difficulty, unit, chapter, size, timeMode, timeText, direction }, timeoutMs);
+    }
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json().catch(() => ({}));
+    if (Array.isArray(data?.items) && data.items.length) return data.items;
+    if (isPair(data)) return [data];
+    const f = await fetch(`/api/sentence-fast`, {
+      method: "POST",
+      headers: { "content-type": "application/json", "x-nonce": randid() },
+      body: JSON.stringify(body)
+    });
+    if (f.ok) {
+      const j = await f.json().catch(()=>null);
+      if (isPair(j)) return [j];
+    }
+    return [];
+  } catch (err) {
+    clearTimeout(timer);
+    if (err?.name === "AbortError" || String(err).includes("timeout")) {
+      const e = new Error("aborted"); e.code = "ABORTED"; throw e;
+    }
+    throw err;
+  }
+}
 
-  const [unitOptions, setUnitOptions] = useState(['All'])
-  const [chaptersByUnit, setChaptersByUnit] = useState({})
+export default function TranslateGame({
+  difficulty="medium",
+  unit="All",
+  chapter="All",
+  timeMode="none",
+  timeText="",
+  direction="ar2en",
+}) {
+  const [ar, setAr] = useState("");
+  const [en, setEn] = useState("");
+  const [guess, setGuess] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [feedback, setFeedback] = useState("");
+  const [err, setErr] = useState("");
 
-  const [loading, setLoading] = useState(true)
-  const [err, setErr] = useState(null)
+  const queuesRef = useRef(new Map());
+  const inflightRef = useRef(null);
 
-  const [ar, setAr] = useState('')
-  const [en, setEn] = useState('')
-  const [tokens, setTokens] = useState([])
+  const scope = useMemo(() => ({ difficulty, unit, chapter, timeMode, timeText, direction }), [difficulty, unit, chapter, timeMode, timeText, direction]);
+  const key = useMemo(() => makeScopeKey(scope), [scope]);
 
-  const [guess, setGuess] = useState('')
-  const [feedback, setFeedback] = useState(null)
+  function abortInflight() {
+    if (inflightRef.current && typeof inflightRef.current.abort === "function") {
+      inflightRef.current.abort("scope-changed");
+    }
+    inflightRef.current = null;
+  }
 
-  // queues per (difficulty,unit,chapter,timeMode,timeText)
-  const queuesRef = useRef(new Map())
-  const inflightRef = useRef(null)
-  const scopeKey = (d=difficulty,u=unit,c=chapter,t=timeMode,tt=timeText.trim()) => `${d}__${u}__${c}__${t}__${tt}`
+  async function ensureWarm() {
+    try { await fetch(`/api/sentence-fast-health`, { method: "GET", cache: "no-store" }); } catch {}
+  }
 
-  async function fetchUnitChapterOptions(){
+  async function prefetch(size = 5, timeoutMs = 20000) {
+    const q = queuesRef.current;
+    if (!q.has(key)) q.set(key, []);
+    const queue = q.get(key);
+    if (queue.length >= size) return;
+
+    const ctrl = new AbortController();
+    inflightRef.current = ctrl;
+
     try {
-      const res = await fetch('/semester1.json', { cache: 'no-store' })
-      const data = await res.json()
-      const units = ['All']
-      const byUnit = {}
-      const arr = Array.isArray(data?.units) ? data.units : []
-      for (const u of arr) {
-        const U = u?.unit
-        if (!U) continue
-        const unitName = U.name || U.id
-        if (!unitName) continue
-        if (!units.includes(unitName)) units.push(unitName)
-        const chs = Array.isArray(U.chapters) ? U.chapters : []
-        byUnit[unitName] = ['All', ...chs.map(ch => ch?.name || ch?.id).filter(Boolean)]
+      const items = await fetchBundle(scope, timeoutMs);
+      if (makeScopeKey(scope) !== key) return;
+      for (const it of items) {
+        if (!queue.find(x => x.ar === it.ar && x.en === it.en)) queue.push(it);
       }
-      setUnitOptions(units)
-      setChaptersByUnit(byUnit)
-    } catch {
-      setUnitOptions(['All'])
-      setChaptersByUnit({})
-    }
-  }
-  useEffect(() => { fetchUnitChapterOptions() }, [])
-  useEffect(() => { setChapter('All') }, [unit])
-
-  function abortInflight(){
-    if (inflightRef.current?.controller){
-      try { inflightRef.current.controller.abort('scope-changed') } catch {}
-    }
-    inflightRef.current = null
-  }
-
-  async function prefetch(size=5, timeoutMs=8000){
-    const key = scopeKey()
-    if (!queuesRef.current.has(key)) queuesRef.current.set(key, [])
-    const controller = new AbortController()
-    inflightRef.current = { controller, scopeKey: key }
-
-    const id = setTimeout(() => controller.abort('timeout'), timeoutMs)
-    try {
-      const res = await fetch(`${API_BASE}/api/sentence-bundle`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ difficulty, unit, chapter, size, timeMode, timeText, direction }),
-        signal: controller.signal
-      })
-      if (!res.ok) throw new Error(`bundle ${res.status}: ${await res.text()}`)
-      const data = await res.json()
-      const items = Array.isArray(data.items) ? data.items : []
-      const q = queuesRef.current.get(key) || []
-      q.push(...items)
-      queuesRef.current.set(key, q)
+    } catch (e) {
+      if (e?.code === "ABORTED") {
+        // ignore
+      } else {
+        console.warn("prefetch failed:", e);
+        setErr(String(e?.message || e));
+      }
     } finally {
-      clearTimeout(id)
-      inflightRef.current = null
+      if (inflightRef.current === ctrl) inflightRef.current = null;
     }
   }
 
-  async function ensureWarm(min=2){
-    const key = scopeKey()
-    const q = queuesRef.current.get(key) || []
-    if (q.length < min && !inflightRef.current){
-      const size = q.length === 0 ? 3 : 5
-      prefetch(size).catch(()=>{})
-    }
+  function showNext() {
+    const q = queuesRef.current;
+    if (!q.has(key)) q.set(key, []);
+    const queue = q.get(key);
+    if (queue.length === 0) { prefetch(5); return; }
+    const item = queue.shift();
+    setAr(item.ar || ""); setEn(item.en || ""); setGuess(""); setFeedback("");
   }
 
-  async function showNext(){
-    setLoading(true); setErr(null); setFeedback(null); setGuess('')
-    const key = scopeKey()
-    let q = queuesRef.current.get(key) || []
-    if (q.length === 0){
-      try {
-        await prefetch(3)
-      } catch (e) {
-        if (e?.name !== 'AbortError') {
-          setErr(`Prefetch error: ${String(e)}`)
-        }
-      }
-      q = queuesRef.current.get(key) || []
-    }
-    const item = q.shift()
-    queuesRef.current.set(key, q)
-    if (item){
-      setAr(item.ar); setEn(item.en); setTokens(item.tokens || [])
-      setLoading(false)
-      ensureWarm(2)
-    }else{
-      setErr('No sentences available for this selection right now.')
-      setLoading(false)
-    }
-  }
+  useEffect(() => { ensureWarm(); }, []);
 
-  // reset on scope change
   useEffect(() => {
-    abortInflight()
-    const key = scopeKey()
-    queuesRef.current.set(key, [])
-    showNext()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [difficulty, unit, chapter, timeMode, timeText])
+    abortInflight();
+    queuesRef.current.set(key, []);
+    setAr(""); setEn(""); setGuess(""); setFeedback(""); setErr("");
+    (async () => { setLoading(true); await prefetch(5); showNext(); setLoading(false); })();
+  }, [key]); // note: includes direction
 
-  async function check(){
-    setFeedback(null)
-    try{
-      const res = await fetch(`${API_BASE}/api/grade`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ direction, guess, referenceAr: ar, referenceEn: en })
-      })
-      const data = await res.json()
-      setFeedback(data)
-      try { recordResult({ arSentence: ar, tokens, verdict: data?.verdict }); } catch {}
-    }catch(e){
-      setFeedback({ verdict:'wrong', hint:'Could not reach grader. ' + String(e) })
-    }
-  }
-
-  const prompt = direction === 'ar2en' ? ar : en
-  const placeholder = direction === 'ar2en' ? 'Type the English meaning…' : 'اكتب الجواب بالعربية…'
+  useEffect(() => {
+    const iv = setInterval(() => {
+      const q = queuesRef.current.get(key) || [];
+      if (q.length < 2 && !inflightRef.current) prefetch(5);
+    }, 3000);
+    return () => clearInterval(iv);
+  }, [key]);
 
   return (
-    <Card>
-      <CardBody>
-        <CardTitle>Translate</CardTitle>
-        <CardSub>AI sentences • AI grading</CardSub>
-
-        {/* controls */}
-        <div className="small mb-16" style={{display:'flex', gap:12, flexWrap:'wrap'}}>
-          <div>Difficulty: <select className="input" value={difficulty} onChange={e=>setDifficulty(e.target.value)}>
-            <option value="short">Short</option>
-            <option value="medium">Medium</option>
-            <option value="long">Long</option>
-          </select></div>
-          <div>Direction: <select className="input" value={direction} onChange={e=>setDirection(e.target.value)}>
-            <option value="ar2en">Arabic → English</option>
-            <option value="en2ar">English → Arabic</option>
-          </select></div>
-          <div>Unit: <select className="input" value={unit} onChange={e=>setUnit(e.target.value)}>
-            {unitOptions.map(u => <option key={u} value={u}>{u}</option>)}
-          </select></div>
-          <div>Chapter: <select className="input" value={chapter} onChange={e=>setChapter(e.target.value)}>
-            {(chaptersByUnit[unit] || ['All']).map(c => <option key={c} value={c}>{c}</option>)}
-          </select></div>
-
-          {/* time sub-tab */}
-          <div style={{display:'flex', alignItems:'center', gap:8}}>
-            <span>Time:</span>
-            <div className="btn-group" role="tablist" style={{display:'inline-flex', gap:6}}>
-              <button type="button" className={`btn ${timeMode==='none'?'brand':''}`} onClick={()=>setTimeMode('none')}>None</button>
-              <button type="button" className={`btn ${timeMode==='custom'?'brand':''}`} onClick={()=>setTimeMode('custom')}>Add</button>
-            </div>
-            {timeMode==='custom' && (
-              <input className="input" style={{minWidth:220}} placeholder="e.g., yesterday morning / at 5pm / on Friday"
-                value={timeText} onChange={e=>setTimeText(e.target.value)} />
-            )}
-          </div>
+    <div className="p-4 max-w-2xl mx-auto">
+      <div className="mb-2 text-sm text-gray-500">Scope: <code>{key}</code></div>
+      <div className="rounded border p-4 mb-4">
+        <div className="text-lg mb-2">{direction === "ar2en" ? ar : en}</div>
+        <input
+          value={guess}
+          onChange={(e) => setGuess(e.target.value)}
+          className="border px-2 py-1 w-full rounded"
+          placeholder={direction === "ar2en" ? "Translate to English…" : "Translate to Arabic…"}
+        />
+        <div className="mt-3 flex gap-2">
+          <button onClick={showNext} className="px-3 py-1 rounded bg-black text-white disabled:bg-gray-400" disabled={loading}>Next</button>
+          <button onClick={() => prefetch(5)} className="px-3 py-1 rounded border">Prefetch</button>
         </div>
-
-        {loading ? <div className="small">Getting a sentence…</div> : (
-          <>
-            <div className="title mb-16">
-              {direction === 'ar2en' ? <>Arabic: <span>{prompt}</span></> : <>English: <span>{prompt}</span></>}
-            </div>
-            <Input placeholder={placeholder} value={guess} onChange={e=>setGuess(e.target.value)} />
-            <div className="mt-16 flex gap-16">
-              <Button variant="brand" onClick={check}>Check</Button>
-              <Button className="ghost" onClick={showNext}>Next</Button>
-              {feedback && (
-                <span className={`badge ${feedback.verdict==='correct'?'ok': feedback.verdict==='minor'?'warn':''}`}>
-                  {feedback.verdict==='correct'?'Correct':feedback.verdict==='minor'?'Almost':'Try again'}
-                </span>
-              )}
-            </div>
-            {feedback?.hint && <div className="small mt-16">{feedback.hint}</div>}
-            <div className="small mt-16">Reference:
-              <details><summary>Show</summary>
-                <div><b>Arabic:</b> {ar}</div>
-                <div><b>English:</b> {en}</div>
-              </details>
-            </div>
-          </>
-        )}
-        {err && <div className="small mt-16">Note: {String(err)}</div>}
-      </CardBody>
-    </Card>
-  )
+        {feedback && <div className="mt-2 text-green-600">{feedback}</div>}
+        {err && <div className="mt-2 text-red-600">Error: {err}</div>}
+      </div>
+      <div className="text-xs text-gray-500">
+        If cancellations persist, verify your Production OPENAI_API_KEY and consider raising your Vercel plan's execution limits.
+      </div>
+    </div>
+  );
 }
