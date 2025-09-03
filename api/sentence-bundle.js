@@ -1,4 +1,4 @@
-// Wrapper with optional rate limit + singleflight, no top-level await.
+// Wrapper with sliding-window limiter + singleflight, CJS-safe (no top-level await).
 import originalHandler from "./sentence-bundle.inner.js";
 
 export const config = { runtime: "edge" };
@@ -13,42 +13,41 @@ function toJson(obj, status=200, extra={}) {
   });
 }
 
-async function readBody(req) {
-  try { return await req.json(); } catch { return {}; }
-}
-
-function hashBody(obj) {
-  try { return btoa(unescape(encodeURIComponent(JSON.stringify(obj)))).slice(0, 64); }
-  catch { return "x"; }
-}
+async function readBody(req) { try { return await req.json(); } catch { return {}; } }
+function hashBody(obj) { try { return btoa(unescape(encodeURIComponent(JSON.stringify(obj)))).slice(0,64); } catch { return "x"; } }
 
 let checkLimitPromise = null;
 async function getCheckLimit() {
   if (checkLimitPromise) return checkLimitPromise;
-  try {
-    checkLimitPromise = import("./_ratelimit.js").then(m => m.checkLimit).catch(() => null);
-    return await checkLimitPromise;
-  } catch {
-    return null;
-  }
+  try { checkLimitPromise = import("./_ratelimit.js").then(m => m.checkLimit).catch(() => null); }
+  catch { checkLimitPromise = Promise.resolve(null); }
+  return checkLimitPromise;
 }
 
 export default async function handler(req) {
-  // Per-IP rate limit (best-effort, fail-open)
+  // Rate limit (best-effort)
   const checkLimit = await getCheckLimit();
   if (checkLimit) {
-    try {
-      const res = await checkLimit(req);
-      if (!res.success) return toJson({ error: "Too many requests" }, 429);
-    } catch {}
+    const limit = Number(process.env.RATE_LIMIT_MAX ?? 600);
+    const windowSec = Number(process.env.RATE_LIMIT_WINDOW ?? 60);
+    const burst = Number(process.env.RATE_LIMIT_BURST ?? 120);
+    const res = await checkLimit(req, { limit, window: windowSec, burst });
+    if (!res.success) {
+      return new Response(JSON.stringify({ error: "Too many requests" }), {
+        status: 429,
+        headers: {
+          "content-type": "application/json; charset=utf-8",
+          "Retry-After": String(res.retryAfter || 5)
+        }
+      });
+    }
   }
 
-  // Singleflight
+  // Singleflight: dedupe concurrent identical requests
   const body = await readBody(req);
   const key = hashBody(body);
   if (inflight.has(key)) {
-    try { return await inflight.get(key); }
-    catch { /* fallthrough */ }
+    try { return await inflight.get(key); } catch {}
   }
   const exec = (async () => {
     const r2 = new Request(req.url, {
