@@ -1,102 +1,126 @@
+// Enhanced sentence-fast with robust fallbacks and a last-resort pair.
+// Tries: proxy -> OpenAI -> archive (/semester1.json) -> ultimate fallback.
+// Edge-friendly (no top-level await).
 import { json } from "./_json.js";
 
 export const config = { runtime: "edge" };
 
-function safe(v) { return (v ?? "").toString().trim(); }
-
-function timeoutAbort(ms) {
-  const controller = new AbortController();
-  const t = setTimeout(() => controller.abort("timeout"), ms);
-  return { controller, cancel: () => clearTimeout(t) };
+function shape(pair, body, source="proxy") {
+  const id = (typeof crypto?.randomUUID === "function") ? crypto.randomUUID() : String(Date.now());
+  const difficulty = body?.difficulty ?? "medium";
+  const unit = body?.unit ?? null;
+  const chapter = body?.chapter ?? null;
+  const direction = body?.direction ?? "ar2en";
+  return {
+    id, difficulty, unit, chapter, direction,
+    ar: String(pair?.ar ?? "").trim(),
+    en: String(pair?.en ?? "").trim(),
+    source
+  };
 }
 
-async function tryProxyOriginal(req, body, ms = 1800) {
-  const url = new URL(req.url);
-  url.pathname = url.pathname.replace(/\/[^\/]+$/, "/sentence");
-  const { controller, cancel } = timeoutAbort(ms);
+async function tryProxyOriginal(req, body, timeoutMs=2000) {
   try {
-    const r = await fetch(url.toString(), {
+    const base = new URL(req.url);
+    base.pathname = "/api/sentence";
+    const ac = new AbortController();
+    const t = setTimeout(() => ac.abort("timeout"), timeoutMs);
+    const r = await fetch(base.toString(), {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "content-type": "application/json" },
       body: JSON.stringify(body),
-      signal: controller.signal
+      signal: ac.signal,
     });
-    cancel();
-    if (!r.ok) throw new Error("original sentence route failed");
-    return await r.json();
+    clearTimeout(t);
+    if (!r.ok) return null;
+    const data = await r.json().catch(() => null);
+    if (!data || !(data.ar && data.en)) return null;
+    return shape({ ar: data.ar, en: data.en }, body, "proxy");
   } catch {
-    cancel();
     return null;
   }
 }
 
-async function tryOpenAI(body, ms = 1800) {
-  if (!process.env.OPENAI_API_KEY) return null;
-  const { difficulty, unit, chapter, direction, timeMode, timeText } = body;
-  const sys = `You are a careful Arabic <-> English tutor. Return a SINGLE JSON object only.`;
-  const content = `Generate one short practice sentence with translation.
-
-Constraints:
-- difficulty: ${difficulty}
-- unit: ${unit}
-- chapter: ${chapter}
-- direction: ${direction}  (ar2en => Arabic prompt, English answer; en2ar => English prompt, Arabic answer)
-- timeMode: ${timeMode}
-- timeText: ${timeText}
-
-Return ONLY a JSON object with keys:
-- "ar": Arabic sentence (<= 14 words)
-- "en": English translation (<= 14 words)`;
-
-  const payload = {
-    model: "gpt-4o-mini",
-    messages: [
-      { role: "system", content: sys },
-      { role: "user", content: [{ type: "text", text: content }] }
-    ],
-    temperature: 0.7,
-    max_tokens: 120
-  };
-
-  const { controller, cancel } = timeoutAbort(ms);
+async function tryOpenAI(body, timeoutMs=2500) {
   try {
+    if (!process.env.OPENAI_API_KEY) return null;
+    const sys = "You generate short bilingual sentence pairs. Output compact, natural text.";
+    const content = `Generate a JSON object with keys \"ar\", \"en\". Direction: ${body?.direction||"ar2en"}. Difficulty: ${body?.difficulty||"medium"}. Keep it short.`;
+    const payload = {
+      model: "gpt-4o-mini",
+      messages: [
+        { role: "system", content: sys },
+        { role: "user", content: [{ type: "text", text: content }] }
+      ],
+      temperature: 0.6,
+      max_tokens: 80
+    };
+    const ac = new AbortController();
+    const t = setTimeout(() => ac.abort("timeout"), timeoutMs);
     const r = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
       headers: {
-        "Authorization": `Bearer ${process.env.OPENAI_API_KEY}`,
-        "Content-Type": "application/json"
+        "content-type": "application/json",
+        "authorization": `Bearer ${process.env.OPENAI_API_KEY}`
       },
       body: JSON.stringify(payload),
-      signal: controller.signal
+      signal: ac.signal
     });
-    cancel();
+    clearTimeout(t);
     if (!r.ok) return null;
-    const j = await r.json();
+    const j = await r.json().catch(()=>null);
     const txt = j?.choices?.[0]?.message?.content || "";
-    const match = txt.match(/\{[\s\S]*\}/);
-    const obj = match ? JSON.parse(match[0]) : JSON.parse(txt);
-    if (obj && (obj.ar || obj.en)) return shape(obj, body, "ai");
-    return null;
+    const m = txt.match(/\{[\s\S]*\}/);
+    const obj = m ? JSON.parse(m[0]) : null;
+    if (!obj || !(obj.ar && obj.en)) return null;
+    return shape({ ar: obj.ar, en: obj.en }, body, "openai");
   } catch {
-    cancel();
     return null;
   }
 }
 
-async function tryArchiveFallback(req, body) {
+function extractWordsFromUnknownShape(data) {
+  const out = [];
+  if (!data) return out;
+  const pushWord = (v) => {
+    const s = String(v || "").trim();
+    if (s) out.push(s);
+  };
+  if (Array.isArray(data)) {
+    for (const item of data) {
+      if (typeof item === "string") pushWord(item);
+      else if (item && typeof item === "object") pushWord(item.ar || item.arabic || item.word || item.text);
+    }
+  } else if (typeof data === "object") {
+    for (const v of Object.values(data)) {
+      if (Array.isArray(v)) {
+        for (const item of v) {
+          if (typeof item === "string") pushWord(item);
+          else if (item && typeof item === "object") pushWord(item.ar || item.arabic || item.word || item.text);
+        }
+      } else if (typeof v === "string") {
+        pushWord(v);
+      }
+    }
+  }
+  return out;
+}
+
+async function tryArchiveFallback(req, body, timeoutMs=1200) {
   try {
     const base = new URL(req.url);
     base.pathname = "/semester1.json";
-    const r = await fetch(base.toString(), { method: "GET" });
+    const ac = new AbortController();
+    const t = setTimeout(() => ac.abort("timeout"), timeoutMs);
+    const r = await fetch(base.toString(), { method: "GET", signal: ac.signal });
+    clearTimeout(t);
     if (!r.ok) return null;
-    const data = await r.json();
-    const words = Object.values(data || {})
-      .flat()
-      .map(w => (w?.ar || w?.arabic || w?.word || "").toString())
-      .filter(Boolean);
-    const n = Math.max(3, Math.min(6, Math.floor(Math.random()*6)+3));
+    const data = await r.json().catch(()=>null);
+    const words = extractWordsFromUnknownShape(data);
+    if (!words.length) return null;
+    const n = Math.max(3, Math.min(8, Math.floor(Math.random()*6)+3));
     const bag = [];
-    for (let i=0; i<n && words.length; i++) {
+    for (let i=0; i<n; i++) {
       const idx = Math.floor(Math.random() * words.length);
       bag.push(words[idx]);
     }
@@ -108,50 +132,27 @@ async function tryArchiveFallback(req, body) {
   }
 }
 
-function shape(pair, body, source="proxy") {
-  const id = (typeof crypto?.randomUUID === "function") ? crypto.randomUUID() : String(Date.now());
-  const ar = safe(pair.ar || "");
-  const en = safe(pair.en || "");
-  const direction = safe(body.direction || "ar2en");
-  const unit = safe(body.unit || "All");
-  const chapter = safe(body.chapter || "All");
-  const difficulty = safe(body.difficulty || "medium");
-  const timeMode = safe(body.timeMode || "");
-  const timeText = safe(body.timeText || "");
-
-  const prompt = direction === "ar2en" ? ar : en;
-  const answer = direction === "ar2en" ? en : ar;
-
-  return {
-    id, ar, en,
-    prompt, answer,
-    direction, unit, chapter, difficulty, timeMode, timeText,
-    source
-  };
+function ultimateFallback(body) {
+  // Last resort to avoid empty UI (simple deterministic pair)
+  const pair = { ar: "تدريب سهل ومباشر", en: "A simple, direct practice sentence." };
+  return shape(pair, body, "ultimate");
 }
 
 export default async function handler(req) {
   try {
-    const body = await req.json().catch(() => ({}));
-    const shaped = {
-      difficulty: safe(body?.difficulty || "medium"),
-      unit:       safe(body?.unit || "All"),
-      chapter:    safe(body?.chapter || "All"),
-      direction:  safe(body?.direction || "ar2en"),
-      timeMode:   safe(body?.timeMode || ""),
-      timeText:   safe(body?.timeText || "")
-    };
+    const body = await req.json().catch(()=> ({}));
 
-    const v1 = await tryProxyOriginal(req, shaped, 1800);
+    const v1 = await tryProxyOriginal(req, body);
     if (v1) return json(v1);
 
-    const v2 = await tryOpenAI(shaped, 1800);
+    const v2 = await tryOpenAI(body);
     if (v2) return json(v2);
 
-    const v3 = await tryArchiveFallback(req, shaped);
+    const v3 = await tryArchiveFallback(req, body);
     if (v3) return json(v3);
 
-    return json({ error: "unable to generate sentence" }, 500);
+    // Never return empty
+    return json(ultimateFallback(body));
   } catch (err) {
     return json({ error: String(err?.message || err) }, 500);
   }
