@@ -28,7 +28,7 @@ export default async function handler(req) {
 
     const items = [];
     const url = new URL(req.url);
-    url.pathname = url.pathname.replace(/\/[^\/]+$/, "/sentence");
+    url.pathname = url.pathname.replace(/\/[^\/]+$/, "/sentence-fast");
 
     for (let i = 0; i < size; i++) {
       const { controller, cancel } = timeoutAbort(perReqTimeoutMs);

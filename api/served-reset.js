@@ -27,7 +27,8 @@ async function getUserIdFromReq(req) {
     return hex.slice(0, 16);
   } catch {
     try {
-      const b64 = btoa(unescape(encodeURIComponent(raw))).replace(/=+$/,"").replace(/\+/g,"-").replace(/\//g,"_");
+      const b64 = btoa(unescape(encodeURIComponent(raw)))
+        .replace(/=+$/,"").replace(/\+/g,"-").replace(/\//g,"_");
       return b64.slice(0, 16);
     } catch {
       return "anon";
