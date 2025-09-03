@@ -1,4 +1,7 @@
 // Wrapper with sliding-window limiter + singleflight, CJS-safe (no top-level await).
+// Now forwards key options (size, direction, difficulty, unit, chapter, timeMode, timeText)
+// as URL search params to ensure sentence-bundle.inner.js sees them even if it only
+// reads from URL (some builds do this).
 import originalHandler from "./sentence-bundle.inner.js";
 
 export const config = { runtime: "edge" };
@@ -22,6 +25,26 @@ async function getCheckLimit() {
   try { checkLimitPromise = import("./_ratelimit.js").then(m => m.checkLimit).catch(() => null); }
   catch { checkLimitPromise = Promise.resolve(null); }
   return checkLimitPromise;
+}
+
+function withParams(urlStr, body) {
+  try {
+    const u = new URL(urlStr);
+    const set = (k, v) => {
+      if (v === undefined || v === null || v === "") return;
+      u.searchParams.set(k, String(v));
+    };
+    set("size", body?.size ?? 3);
+    set("direction", body?.direction);
+    set("difficulty", body?.difficulty);
+    set("unit", body?.unit);
+    set("chapter", body?.chapter);
+    set("timeMode", body?.timeMode);
+    set("timeText", body?.timeText);
+    return u.toString();
+  } catch {
+    return urlStr;
+  }
 }
 
 export default async function handler(req) {
@@ -50,7 +73,8 @@ export default async function handler(req) {
     try { return await inflight.get(key); } catch {}
   }
   const exec = (async () => {
-    const r2 = new Request(req.url, {
+    const forwardedUrl = withParams(req.url, body);
+    const r2 = new Request(forwardedUrl, {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify(body)

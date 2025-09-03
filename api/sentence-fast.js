@@ -1,6 +1,4 @@
-// Enhanced sentence-fast with robust fallbacks and a last-resort pair.
-// Tries: proxy -> OpenAI -> archive (/semester1.json) -> ultimate fallback.
-// Edge-friendly (no top-level await).
+// Stronger sentence-fast: robust archive, longer timeouts, randomized ultimate, and source header.
 import { json } from "./_json.js";
 
 export const config = { runtime: "edge" };
@@ -19,7 +17,13 @@ function shape(pair, body, source="proxy") {
   };
 }
 
-async function tryProxyOriginal(req, body, timeoutMs=2000) {
+function withHeader(res, source) {
+  const headers = new Headers(res.headers);
+  headers.set("x-sf-source", source);
+  return new Response(res.body, { status: res.status, headers });
+}
+
+async function tryProxyOriginal(req, body, timeoutMs=4000) {
   try {
     const base = new URL(req.url);
     base.pathname = "/api/sentence";
@@ -41,7 +45,7 @@ async function tryProxyOriginal(req, body, timeoutMs=2000) {
   }
 }
 
-async function tryOpenAI(body, timeoutMs=2500) {
+async function tryOpenAI(body, timeoutMs=5000) {
   try {
     if (!process.env.OPENAI_API_KEY) return null;
     const sys = "You generate short bilingual sentence pairs. Output compact, natural text.";
@@ -79,52 +83,44 @@ async function tryOpenAI(body, timeoutMs=2500) {
   }
 }
 
-function extractWordsFromUnknownShape(data) {
-  const out = [];
-  if (!data) return out;
-  const pushWord = (v) => {
-    const s = String(v || "").trim();
-    if (s) out.push(s);
+function extractWords(data) {
+  const out = new Set();
+  const push = (v) => { const s = String(v || "").trim(); if (s) out.add(s); };
+  const visit = (x) => {
+    if (!x) return;
+    if (typeof x === "string") return push(x);
+    if (Array.isArray(x)) return x.forEach(visit);
+    if (typeof x === "object") {
+      push(x.ar); push(x.arabic); push(x.word); push(x.text);
+      for (const v of Object.values(x)) visit(v);
+    }
   };
-  if (Array.isArray(data)) {
-    for (const item of data) {
-      if (typeof item === "string") pushWord(item);
-      else if (item && typeof item === "object") pushWord(item.ar || item.arabic || item.word || item.text);
-    }
-  } else if (typeof data === "object") {
-    for (const v of Object.values(data)) {
-      if (Array.isArray(v)) {
-        for (const item of v) {
-          if (typeof item === "string") pushWord(item);
-          else if (item && typeof item === "object") pushWord(item.ar || item.arabic || item.word || item.text);
-        }
-      } else if (typeof v === "string") {
-        pushWord(v);
-      }
-    }
-  }
-  return out;
+  visit(data);
+  return Array.from(out);
 }
 
-async function tryArchiveFallback(req, body, timeoutMs=1200) {
+const BUILTIN_WORDS = ["مرحبا","دقيقة","تمرين","سهل","مباشر","اليوم","كتاب","درس","وقت","ماء","قلم","بيت","مدرسة"];
+
+function randomSentenceFrom(words) {
+  const pool = words && words.length ? words : BUILTIN_WORDS;
+  const n = Math.max(3, Math.min(8, Math.floor(Math.random()*6)+3));
+  const bag = [];
+  for (let i=0; i<n; i++) bag.push(pool[Math.floor(Math.random()*pool.length)]);
+  return bag.join(" ");
+}
+
+async function tryArchiveFallback(req, body, timeoutMs=2500) {
   try {
-    const base = new URL(req.url);
-    base.pathname = "/semester1.json";
+    const origin = new URL(req.url).origin;
+    const url = `${origin}/semester1.json`;
     const ac = new AbortController();
     const t = setTimeout(() => ac.abort("timeout"), timeoutMs);
-    const r = await fetch(base.toString(), { method: "GET", signal: ac.signal });
+    const r = await fetch(url, { method: "GET", signal: ac.signal });
     clearTimeout(t);
     if (!r.ok) return null;
     const data = await r.json().catch(()=>null);
-    const words = extractWordsFromUnknownShape(data);
-    if (!words.length) return null;
-    const n = Math.max(3, Math.min(8, Math.floor(Math.random()*6)+3));
-    const bag = [];
-    for (let i=0; i<n; i++) {
-      const idx = Math.floor(Math.random() * words.length);
-      bag.push(words[idx]);
-    }
-    const ar = bag.join(" ");
+    const words = extractWords(data);
+    const ar = randomSentenceFrom(words);
     const en = "Practice sentence from archive words.";
     return shape({ ar, en }, body, "archive");
   } catch {
@@ -133,9 +129,13 @@ async function tryArchiveFallback(req, body, timeoutMs=1200) {
 }
 
 function ultimateFallback(body) {
-  // Last resort to avoid empty UI (simple deterministic pair)
-  const pair = { ar: "تدريب سهل ومباشر", en: "A simple, direct practice sentence." };
-  return shape(pair, body, "ultimate");
+  const candidates = [
+    { ar: "تدريب سهل ومباشر", en: "A simple, direct practice sentence." },
+    { ar: "تمرين قصير قبل الدرس", en: "A short practice before the lesson." },
+    { ar: "نكتب جملة ثم نراجعها", en: "We write a sentence then review it." }
+  ];
+  const pick = candidates[Math.floor(Math.random()*candidates.length)];
+  return shape(pick, body, "ultimate");
 }
 
 export default async function handler(req) {
@@ -143,16 +143,26 @@ export default async function handler(req) {
     const body = await req.json().catch(()=> ({}));
 
     const v1 = await tryProxyOriginal(req, body);
-    if (v1) return json(v1);
+    if (v1) {
+      const res = json(v1);
+      return withHeader(res, "proxy");
+    }
 
     const v2 = await tryOpenAI(body);
-    if (v2) return json(v2);
+    if (v2) {
+      const res = json(v2);
+      return withHeader(res, "openai");
+    }
 
     const v3 = await tryArchiveFallback(req, body);
-    if (v3) return json(v3);
+    if (v3) {
+      const res = json(v3);
+      return withHeader(res, "archive");
+    }
 
-    // Never return empty
-    return json(ultimateFallback(body));
+    const v4 = ultimateFallback(body);
+    const res = json(v4);
+    return withHeader(res, "ultimate");
   } catch (err) {
     return json({ error: String(err?.message || err) }, 500);
   }
