@@ -1,0 +1,8 @@
+import { loadState, saveState, watchState } from './firebase'
+const NAMESPACE_KEYS = ['mistakes','mastery','wordStats','translate_progress','translate_stage','translate_avgScore','translate_checks','wordorder_rounds','wordorder_correct','streak_current','streak_best','last_active_date','badges']
+function readLocal(k,email=''){ const key=email?`${email}_${k}`:k; try{ const v=localStorage.getItem(key); return v&&(v[0]==='{'||v[0]==='[')?JSON.parse(v):v }catch{return null} }
+function writeLocal(k,v,email=''){ const key=email?`${email}_${k}`:k; localStorage.setItem(key, typeof v==='object'?JSON.stringify(v):String(v)) }
+export async function uploadAllLocalToCloud(user){ const state={}; for(const k of NAMESPACE_KEYS){ const v=readLocal(k,user?.email); if(v!==null && v!==undefined && v!=='') state[k]=v } await saveState(user.uid,state); return state }
+export async function downloadAllCloudToLocal(user){ const cloud=await loadState(user.uid); for(const [k,v] of Object.entries(cloud||{})){ writeLocal(k,v,user?.email) } return cloud }
+export function subscribeCloudToLocal(user){ return watchState(user.uid,(cloud)=>{ for(const [k,v] of Object.entries(cloud||{})){ writeLocal(k,v,user?.email) } }) }
+export async function mergeLocalAndCloud(user, strategy='preferCloud'){ const local={}; for(const k of NAMESPACE_KEYS){ const v=readLocal(k,user?.email); if(v!==null && v!==undefined) local[k]=v } const cloud=await loadState(user.uid); let merged={}; if(strategy==='preferCloud'){ merged={...local,...cloud} } else if(strategy==='preferLocal'){ merged={...cloud,...local} } else { merged={...local,...cloud} } await saveState(user.uid,merged); for(const [k,v] of Object.entries(merged)) writeLocal(k,v,user?.email); return merged }
