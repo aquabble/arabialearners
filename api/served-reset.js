@@ -10,7 +10,7 @@ function json(data, status = 200) {
   });
 }
 
-// Edge-safe user id hashing using Web Crypto (no Node 'crypto' import)
+// Edge-safe user id hashing using Web Crypto
 async function getUserIdFromReq(req) {
   const raw = (
     req.headers.get("x-user-id") ||
