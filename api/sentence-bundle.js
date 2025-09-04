@@ -1,9 +1,16 @@
 
-// API DIFFICULTY-LENGTH PATCH v4.1 (UI-safe)
-// Fixes for "no sentences on specific unit/chapter":
-//  - Robust lexicon lookup: accepts '3', 'Unit 3', 'u3', 'unit3' (case/spacing-insensitive).
-//  - Never-empty: if after all passes we have < N, we relax constraints and backfill to N.
-//  - If lexicon-based repair still yields too few, do a no-lexicon second generation to fill.
+// API SEMESTER1 TAILORED PATCH v4.3 (UI-safe)
+// Tailors lexicon loading to src/lib/semester1.json schema:
+// { "semester": 1, "units": [ { "difficulty": 3, "unit": { "id": "unit_3", "name": "Unit 3", "chapters": [...] } } ] }
+//
+// Where vocab may appear at either level:
+// - unit.unit.vocab: string[]
+// - unit.unit.chapters[].vocab: string[]
+// (Also accepts synonyms: words, wordBank, terms, glossary)
+//
+// Still supports data/semester1.json and data/lexicon.json as fallbacks.
+// Accepts client-provided `lexicon` which overrides file(s).
+// Keeps: difficulty→length+vocab rules, no-cache, UI-compatible keys, second-pass fill to avoid empties.
 
 import { OpenAI } from "openai";
 import fs from "fs";
@@ -15,58 +22,133 @@ export const config = { api: { bodyParser: true } };
 function clamp(n, lo, hi) { return Math.max(lo, Math.min(hi, n)); }
 function safeParse(body) { if (!body) return {}; if (typeof body === "object") return body; try { return JSON.parse(body); } catch { return {}; } }
 
-// ---- Normalizers ----
+// ---- Normalizers
 const AR_HARAKAT = /[\u064B-\u065F\u0670]/g;
-function normArabic(s){return (s||"").replace(AR_HARAKAT,"").replace(/\u0622/g,"\u0627").replace(/\u0623/g,"\u0627").replace(/\u0625/g,"\u0627").replace(/\u0649/g,"\u064A").replace(/\u0629/g,"\u0647").replace(/[^\u0600-\u06FF\s]/g,"").trim();}
-function normLatin(s){return (s||"").toLowerCase().replace(/[^a-z0-9]/g,"");}
+function normLatinTight(s){ return (s||"").toLowerCase().replace(/[^a-z0-9]/g,""); }
+function normArabic(s){ return (s||"").replace(AR_HARAKAT,"").replace(/\u0622/g,"\u0627").replace(/\u0623/g,"\u0627").replace(/\u0625/g,"\u0627").replace(/\u0649/g,"\u064A").replace(/\u0629/g,"\u0647").replace(/[^\u0600-\u06FF\s]/g,"").trim(); }
 
-// ---- Lexicon loading ----
-function loadLocalLexicon() {
-  try {
-    const p = path.join(process.cwd(), "data", "lexicon.json");
+// ---- Difficulty rules
+function difficultyRules(d){ d=(d||"").toLowerCase(); if(d==="short"||d==="easy") return {length:"short", wordsRange:[4,8], minHits:1}; if(d==="long"||d==="hard") return {length:"long", wordsRange:[12,20], minHits:2, preferMaxHits:3}; return {length:"medium", wordsRange:[8,12], minHits:2}; }
+
+// ---- Semester1 schema loader
+function readJSONIfExists(relOrAbs){
+  try{
+    let p = relOrAbs;
+    if (!p.startsWith("/")) p = path.join(process.cwd(), p);
     if (fs.existsSync(p)) return JSON.parse(fs.readFileSync(p, "utf-8"));
-  } catch {}
+  }catch{}
   return null;
 }
 
-function matchKey(obj, key) {
-  if (!obj || typeof obj !== "object") return null;
-  if (key in obj) return key;
-  const nk = normLatin(String(key));
-  // Try simple suffix/contains numeric match ("3" -> "unit3")
-  const digits = nk.replace(/\D+/g, "");
-  for (const k of Object.keys(obj)) {
-    const nk2 = normLatin(String(k));
-    if (nk2 === nk) return k;
-    if (digits && (nk2.endsWith(digits) || nk2.includes(digits))) return k;
+function collectStringsFromAny(x, out){
+  if (!x) return;
+  if (typeof x === "string") { out.push(x); return; }
+  if (Array.isArray(x)) { for (const y of x) collectStringsFromAny(y, out); return; }
+  if (typeof x === "object") {
+    for (const k of Object.keys(x)) {
+      const v = x[k];
+      if (typeof v === "string") out.push(v);
+      else if (Array.isArray(v)) collectStringsFromAny(v, out);
+      else if (k === "ar" || k === "arabic" || k === "en" || k === "english" || k === "word" || k === "root") {
+        if (typeof v === "string") out.push(v);
+      }
+    }
   }
-  // fallback: first key
+}
+
+function extractVocabFromUnit(unitObj){
+  // Accept multiple keys for vocab arrays
+  const vocabKeys = ["vocab","words","wordBank","terms","glossary"];
+  const out = [];
+  for (const k of vocabKeys) {
+    if (Array.isArray(unitObj?.[k])) collectStringsFromAny(unitObj[k], out);
+  }
+  // Chapters
+  const chapters = unitObj?.chapters;
+  if (Array.isArray(chapters)) {
+    for (const ch of chapters) {
+      for (const k of vocabKeys) {
+        if (Array.isArray(ch?.[k])) collectStringsFromAny(ch[k], out);
+      }
+    }
+  }
+  return out;
+}
+
+function matchUnit(units, unitLabel){
+  if (!Array.isArray(units)) return null;
+  const n = normLatinTight(String(unitLabel||""));
+  const digits = n.replace(/\D+/g, ""); // "3"
+  for (const u of units) {
+    const id = normLatinTight(u?.unit?.id || "");
+    const name = normLatinTight(u?.unit?.name || "");
+    if (!id && !name) continue;
+    if (id === n || name === n) return u;
+    if (digits && (id.endsWith(digits) || name.endsWith(digits))) return u;
+  }
   return null;
 }
 
-function pickLexicon(local, semester, unit, chapter) {
-  if (Array.isArray(local)) return local;
-  if (!local || typeof local !== "object") return [];
+function pickLexiconFromSemester1(json, unitLabel, chapterLabel){
+  // json: { semester, units: [ {difficulty, unit:{id,name,chapters}} ] }
+  if (!json || typeof json !== "object" || !Array.isArray(json.units)) return [];
+  const u = matchUnit(json.units, unitLabel) || json.units[0];
+  if (!u) return [];
+  const unitObj = u.unit || {};
+  let lex = extractVocabFromUnit(unitObj);
 
-  // Step 1: semester
-  let sKey = matchKey(local, semester) || matchKey(local, "All");
-  let S = sKey ? local[sKey] : null;
-
-  // Step 2: unit
-  if (S && typeof S === "object") {
-    let uKey = matchKey(S, unit) || matchKey(S, "All");
-    S = uKey ? S[uKey] : S;
+  // If a specific chapter is requested, try to narrow to that chapter first
+  const chapN = normLatinTight(String(chapterLabel||""));
+  const digits = chapN.replace(/\D+/g, "");
+  const chapters = Array.isArray(unitObj.chapters) ? unitObj.chapters : [];
+  const ch = chapters.find(c => {
+    const id = normLatinTight(c?.id || "");
+    const name = normLatinTight(c?.name || "");
+    if (chapN && (id === chapN || name === chapN)) return true;
+    if (digits && (id.endsWith(digits) || name.endsWith(digits))) return true;
+    return false;
+  });
+  if (ch) {
+    const narrowed = extractVocabFromUnit({ chapters:[ch] });
+    if (narrowed.length) lex = narrowed;
   }
 
-  // Step 3: chapter
-  if (S && typeof S === "object") {
-    let cKey = matchKey(S, chapter) || matchKey(S, "All");
-    S = cKey ? S[cKey] : S;
-  }
-
-  return Array.isArray(S) ? S : [];
+  // de-dup
+  const seen = new Set(); const uniq = [];
+  for (const w of lex) if (!seen.has(w)) { seen.add(w); uniq.push(w); }
+  return uniq;
 }
 
+function mergedLexicon(semester, unit, chapter){
+  // Priority files (in order):
+  const prefer = process.env.LEXICON_FILES
+    ? process.env.LEXICON_FILES.split(",").map(s => s.trim())
+    : ["src/lib/semester1.json", "data/semester1.json", "data/lexicon.json"];
+
+  let merged = [];
+
+  for (const fp of prefer) {
+    const j = readJSONIfExists(fp);
+    if (!j) continue;
+    if (j && Array.isArray(j.units)) {
+      // semester1 schema
+      merged.push(...pickLexiconFromSemester1(j, unit, chapter));
+    } else if (Array.isArray(j)) {
+      // flat array
+      collectStringsFromAny(j, merged);
+    } else if (typeof j === "object") {
+      // nested/other schema: collect strings broadly
+      collectStringsFromAny(j, merged);
+    }
+  }
+
+  // de-dup
+  const seen = new Set(); const uniq = [];
+  for (const w of merged) if (!seen.has(w)) { seen.add(w); uniq.push(w); }
+  return uniq;
+}
+
+// ---- Model I/O
 function coerceItems(parsed) {
   if (!parsed) return [];
   let items = parsed.items || parsed.sentences || parsed.list || parsed.data;
@@ -123,7 +205,7 @@ export default async function handler(req, res) {
   try {
     const body = safeParse(req.body);
     const difficulty = body.difficulty ?? "medium";
-    const semester = body.semester ?? body.sem ?? "All";
+    const semester = body.semester ?? body.sem ?? "S1";
     const unit = String(body.unit ?? "All");
     const chapter = String(body.chapter ?? "All");
     const direction = body.direction ?? "ar2en";
@@ -134,21 +216,13 @@ export default async function handler(req, res) {
     const N = clamp(Number(countRaw) || 3, 1, 10);
     const seed = (body.seed ?? Math.floor(Math.random() * 1e9)) + "";
 
-    // Difficulty rules (same as v4)
-    function difficultyRules(d){
-      d=(d||"").toLowerCase();
-      if(d==="short"||d==="easy") return {length:"short", wordsRange:[4,8], minHits:1};
-      if(d==="long"||d==="hard") return {length:"long", wordsRange:[12,20], minHits:2, preferMaxHits:3};
-      return {length:"medium", wordsRange:[8,12], minHits:2};
-    }
     const rules = difficultyRules(difficulty);
     const mustUseTime = (("" + timeModeRaw).toLowerCase() !== "none") || (timeText.length > 0);
 
-    // Lexicon: prefer body.lexicon; else local
-    let lexicon = Array.isArray(body.lexicon) ? body.lexicon : [];
-    if (!lexicon.length) {
-      const local = loadLocalLexicon();
-      lexicon = pickLexicon(local, semester, unit, chapter) || [];
+    // Prefer client-provided lexicon; else derive from semester1.json (tailored)
+    let lexicon = Array.isArray(body.lexicon) ? body.lexicon : null;
+    if (!lexicon) {
+      lexicon = mergedLexicon(semester, unit, chapter);
     }
 
     const baseSys =
@@ -165,20 +239,20 @@ Return ONLY: {"items":[{"ar":"...","en":"...","hint"?: "..."}]}.
       count: N, style_seed: seed,
       lexicon,
       enforce: {
-        min_lexicon_hits: lexicon.length ? rules.minHits : 0,
+        min_lexicon_hits: (lexicon && lexicon.length) ? rules.minHits : 0,
         prefer_hits_upto: rules.preferMaxHits || rules.minHits,
         source_word_range: rules.wordsRange
       }
     };
 
-    // First call (with lexicon if present)
+    // First call
     let parsed = await callModel([
       { role: "system", content: baseSys },
       { role: "user", content: JSON.stringify(payload) }
     ]);
     let items = coerceItems(parsed).map(x => normalizePair(x, direction)).filter(Boolean);
 
-    // If we got too few items, try a second pass WITHOUT lexicon constraints to fill
+    // If too few, run a second pass w/o lexicon to fill
     if (items.length < N) {
       const fillParsed = await callModel([
         { role: "system", content: baseSys },
@@ -202,25 +276,18 @@ Return ONLY: {"items":[{"ar":"...","en":"...","hint"?: "..."}]}.
       });
     }
 
-    // Final guarantees
     if (!items.length) {
-      // Hard fallback: fill N template pairs
       const base = direction === "ar2en"
-        ? [{ ar: "ذهبتُ إلى السوق صباحًا.", en: "I went to the market in the morning." },
-           { ar: "أين تقع الجامعة؟", en: "Where is the university?" },
-           { ar: "لا أستطيع الحضور اليوم.", en: "I can’t attend today." }]
-        : [{ en: "I study Arabic every day.", ar: "أدرسُ العربية كلَّ يوم." },
-           { en: "Where is the nearest cafe?", ar: "أين أقرب مقهى؟" },
-           { en: "We will meet tomorrow.", ar: "سنلتقي غدًا." }];
+        ? [{ ar: "ذهبتُ إلى السوق صباحًا.", en: "I went to the market in the morning." }]
+        : [{ en: "I study Arabic every day.", ar: "أدرسُ العربية كلَّ يوم." }];
       items = base.slice(0, N);
     } else if (items.length < N) {
-      // Duplicate with slight variation marker in hint
       const padded = [];
       for (let i = 0; i < N; i++) padded.push({ ...items[i % items.length] });
       items = padded.slice(0, N);
     }
 
-    res.status(200).json({ ok: true, items, sentences: items, list: items });
+    res.status(200).json({ ok: true, items, sentences: items, list: items, lexicon_source: "semester1-tailored", lexicon_used: (lexicon && lexicon.length) ? lexicon.length : 0 });
   } catch (err) {
     console.error(err);
     res.status(500).json({ ok: false, error: "Internal error", detail: String(err && err.message || err) });
