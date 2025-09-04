@@ -1,15 +1,104 @@
 
-// API MODIFIERS PATCH v3 (UI-safe, variety-on, no-cache)
-// File: api/sentence-bundle.js
+// API DIFFICULTY-LENGTH PATCH v4 (UI-safe)
+// - Maps difficulty to target length + minimum curriculum vocab hits.
+// - Tries to load a local lexicon at /data/lexicon.json (optional).
+// - Also accepts `lexicon` in request body (array of words).
+// - Enforces constraints via prompt + post-check; attempts one repair pass if under-hitting.
+// - Keeps UI-compatible response keys (items/sentences/list).
 
 import { OpenAI } from "openai";
+import fs from "fs";
+import path from "path";
 
 const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-
 export const config = { api: { bodyParser: true } };
 
 function clamp(n, lo, hi) { return Math.max(lo, Math.min(hi, n)); }
 function safeParse(body) { if (!body) return {}; if (typeof body === "object") return body; try { return JSON.parse(body); } catch { return {}; } }
+
+// ----- Lexicon loading (optional local file) -----
+function loadLocalLexicon() {
+  try {
+    const p = path.join(process.cwd(), "data", "lexicon.json");
+    if (fs.existsSync(p)) {
+      const raw = fs.readFileSync(p, "utf-8");
+      return JSON.parse(raw);
+    }
+  } catch {}
+  return null;
+}
+
+function pickLexicon(local, semester, unit, chapter) {
+  // Supports a flat array or nested { [semester]: { [unit]: { [chapter]: [...] } } }
+  if (Array.isArray(local)) return local;
+  if (local && typeof local === "object") {
+    const s = semester ?? "All";
+    const u = unit ?? "All";
+    const c = chapter ?? "All";
+    // Try exact path
+    let arr = local?.[s]?.[u]?.[c];
+    if (Array.isArray(arr)) return arr;
+    // Try fallbacks
+    arr = local?.[s]?.[u] || local?.[s] || local?.["All"];
+    if (Array.isArray(arr)) return arr;
+    if (Array.isArray(local?.["All"]?.["All"]?.["All"])) return local["All"]["All"]["All"];
+  }
+  return [];
+}
+
+// ----- Text normalize utilities -----
+const AR_HARAKAT = /[\u064B-\u065F\u0670]/g; // tanween, shadda, sukun, maddah, etc.
+function normArabic(s) {
+  if (!s) return "";
+  return s
+    .replace(AR_HARAKAT, "")
+    .replace(/\u0622/g, "\u0627") // آ -> ا
+    .replace(/\u0623/g, "\u0627") // أ -> ا
+    .replace(/\u0625/g, "\u0627") // إ -> ا
+    .replace(/\u0649/g, "\u064A") // ى -> ي
+    .replace(/\u0629/g, "\u0647") // ة -> ه (rough)
+    .replace(/[^\u0600-\u06FF\s]/g, "") // keep Arabic letters & spaces
+    .trim();
+}
+function normLatin(s) {
+  if (!s) return "";
+  return s.toLowerCase().replace(/[^a-z0-9\s\-']/g, " ").replace(/\s+/g, " ").trim();
+}
+
+function countHits(text, lex) {
+  if (!Array.isArray(lex) || !lex.length) return 0;
+  const ar = normArabic(text);
+  const en = normLatin(text);
+  let hits = 0;
+  const seen = new Set();
+  for (const wRaw of lex) {
+    const w = typeof wRaw === "string" ? wRaw : (wRaw?.word || "");
+    if (!w) continue;
+    const wAr = normArabic(w);
+    const wEn = normLatin(w);
+    let found = false;
+    if (wAr) {
+      // word boundary-ish for Arabic: simple substring after normalization
+      if (ar && ar.includes(wAr)) found = true;
+    }
+    if (!found && wEn) {
+      const re = new RegExp(`\\b${wEn.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`, "i");
+      if (en && re.test(en)) found = true;
+    }
+    if (found && !seen.has(w)) {
+      hits++;
+      seen.add(w);
+    }
+  }
+  return hits;
+}
+
+function difficultyRules(difficulty) {
+  const d = (difficulty || "").toLowerCase();
+  if (d === "short" || d === "easy") return { length: "short", wordsRange: [4, 8], minHits: 1 };
+  if (d === "long" || d === "hard") return { length: "long", wordsRange: [12, 20], minHits: 2, preferMaxHits: 3 };
+  return { length: "medium", wordsRange: [8, 12], minHits: 2 }; // default/medium
+}
 
 function coerceItems(parsed) {
   if (!parsed) return [];
@@ -19,7 +108,6 @@ function coerceItems(parsed) {
   for (const v of Object.values(parsed)) if (Array.isArray(v)) return v;
   return [];
 }
-
 function normalizePair(obj, direction) {
   if (!obj || typeof obj !== "object") return null;
   let ar = obj.ar ?? obj.arabic ?? null;
@@ -32,44 +120,47 @@ function normalizePair(obj, direction) {
   const hint = obj.hint ?? obj.note ?? obj.gloss ?? null;
   return { ar, en, ...(hint ? { hint } : {}) };
 }
-
 function extractJSON(text) {
   if (typeof text !== "string") return null;
   const s = text.indexOf("{"), e = text.lastIndexOf("}");
   if (s === -1 || e === -1 || e <= s) return null;
   try { return JSON.parse(text.slice(s, e + 1)); } catch { return null; }
 }
-
 function uniqByText(items) {
-  const seen = new Set();
-  const out = [];
+  const seen = new Set(); const out = [];
   for (const it of items) {
     const key = (it.ar || "") + "||" + (it.en || "");
-    if (!seen.has(key.trim())) {
-      seen.add(key.trim());
-      out.push(it);
-    }
+    if (!seen.has(key.trim())) { seen.add(key.trim()); out.push(it); }
   }
   return out;
 }
 
-function difficultyHints(level) {
-  switch ((level || "").toLowerCase()) {
-    case "easy": return { length: "short", vocab: "basic", grammar: "simple" };
-    case "hard": return { length: "medium", vocab: "richer", grammar: "include subordinate clauses" };
-    default: return { length: "short-to-medium", vocab: "common", grammar: "mix of simple and a bit complex" };
-  }
+async function generateBundle(payload, sysContent) {
+  const resp = await client.chat.completions.create({
+    model: process.env.OPENAI_MODEL || "gpt-4o-mini",
+    temperature: 0.8,
+    top_p: 0.9,
+    frequency_penalty: 0.35,
+    presence_penalty: 0.25,
+    response_format: { type: "json_object" },
+    messages: [
+      { role: "system", content: sysContent },
+      { role: "user", content: JSON.stringify(payload) }
+    ]
+  });
+  const raw = resp.choices?.[0]?.message?.content ?? "{}";
+  let parsed = null; try { parsed = JSON.parse(raw); } catch { parsed = extractJSON(raw) || {}; }
+  return coerceItems(parsed);
 }
 
 export default async function handler(req, res) {
   if (req.method !== "POST") { res.status(405).json({ error: "Method not allowed" }); return; }
-
-  // Prevent any caching
   res.setHeader("Cache-Control", "no-store");
 
   try {
     const body = safeParse(req.body);
-    const difficulty = body.difficulty ?? "medium";
+    const difficulty = body.difficulty ?? "medium"; // "short" | "medium" | "long" also accepted
+    const semester = body.semester ?? body.sem ?? "All";
     const unit = body.unit ?? "All";
     const chapter = body.chapter ?? "All";
     const direction = body.direction ?? "ar2en";
@@ -81,69 +172,76 @@ export default async function handler(req, res) {
     const seed = (body.seed ?? Math.floor(Math.random() * 1e9)) + "";
 
     const mustUseTime = (("" + timeModeRaw).toLowerCase() !== "none") || (timeText.length > 0);
+    const rules = difficultyRules(difficulty);
 
-    const diff = difficultyHints(difficulty);
+    // Assemble lexicon: body.lexicon has priority, else local file by (semester/unit/chapter)
+    let lexicon = Array.isArray(body.lexicon) ? body.lexicon : [];
+    if (!lexicon.length) {
+      const local = loadLocalLexicon();
+      lexicon = pickLexicon(local, semester, unit, chapter) || [];
+    }
 
-    const sys = [
-      { role: "system",
-        content:
-`You generate sentence PAIRS for Arabic↔English learners (CEFR A2–B1).
-You MUST ONLY reply with one JSON object: { "items": [ { "ar": "...", "en": "...", "hint": "..."? } ] }.
+    const sysContent =
+`You generate sentence PAIRS for Arabic↔English learners (CEFR A2–B1). 
+ALWAYS respond with a single JSON object: { "items": [ { "ar": "...", "en": "...", "hint"?: "..." } ] }.
 Obey constraints strictly:
 - direction=ar2en => "ar" is Arabic source, "en" is the English meaning.
 - direction=en2ar => reverse roles.
-- Honor difficulty: ${difficulty} (${diff.length}, ${diff.vocab}, ${diff.grammar}).
-- If unit != "All" or chapter != "All", keep content thematically consistent with Unit/Chapter.
-- If topic provided, keep all sentences on that topic.
-- Vary structure across items (questions, statements, negation, different tenses, time/place adjuncts).
-- Keep sentences compact and natural.` }
-    ];
+- Target length: ${rules.length} (${rules.wordsRange[0]}–${rules.wordsRange[1]} words on the source side).
+- Use at least ${rules.minHits}${rules.preferMaxHits ? "-" + rules.preferMaxHits : ""} vocabulary item(s) from the provided curriculum list when available.
+- Keep sentences natural and compact; vary structures (questions, negation, tense, time/place adjuncts).
+`;
 
-    const constraints = {
-      difficulty,
-      unit,
-      chapter,
-      direction,
-      topic,
+    const payload = {
+      difficulty, length_rule: rules,
+      semester, unit, chapter, direction, topic,
+      time: mustUseTime ? (timeText || "today / yesterday / tomorrow / in the evening") : null,
       count: N,
       style_seed: seed,
-      require_time_adjunct: mustUseTime,
-      time_text: mustUseTime ? (timeText || "today / yesterday / tomorrow / in the evening") : null,
-      variety_recipe: [
-        "1 statement (present)",
-        "1 yes/no question (present)",
-        "1 statement with negation (past)",
-        "1 wh-question (past)",
-        "1 plan/intent (future or near-future)",
-        "1 with a connector (because, but, so)",
-        "1 with place adjunct",
-        "1 with time adjunct"
-      ]
+      lexicon, // array of strings is fine
+      enforce: {
+        min_lexicon_hits: rules.minHits,
+        prefer_hits_upto: rules.preferMaxHits || rules.minHits,
+        source_word_range: rules.wordsRange
+      }
     };
 
-    const user = [{ role: "user", content: JSON.stringify(constraints) }];
+    // First pass
+    let items = (await generateBundle(payload, sysContent))
+      .map(x => normalizePair(x, direction)).filter(Boolean);
 
-    const resp = await client.chat.completions.create({
-      model: process.env.OPENAI_MODEL || "gpt-4o-mini",
-      temperature: 0.75,
-      top_p: 0.9,
-      frequency_penalty: 0.35,
-      presence_penalty: 0.25,
-      response_format: { type: "json_object" },
-      messages: [...sys, ...user]
-    });
+    // Post-check & optional repair if lexicon provided
+    const needRepair = Array.isArray(lexicon) && lexicon.length > 0;
+    if (needRepair) {
+      const checked = [];
+      const misses = [];
+      for (const it of items) {
+        const src = direction === "ar2en" ? it.ar : it.en;
+        const hits = countHits(src || "", lexicon);
+        if (hits >= rules.minHits) checked.push(it); else misses.push({ it, hits });
+      }
+      if (misses.length) {
+        // Ask the model to minimally rewrite the misses to include more lexicon words.
+        const repairPayload = {
+          direction, length_rule: rules, lexicon,
+          items: misses.map(m => m.it),
+          target_min_hits: rules.minHits,
+          prefer_hits_upto: rules.preferMaxHits || rules.minHits
+        };
+        const repairSys = `Rewrite the given items so each source sentence contains at least ${rules.minHits} lexicon word(s) (prefer up to ${rules.preferMaxHits || rules.minHits}). Keep meaning natural and within ${rules.wordsRange[0]}–${rules.wordsRange[1]} source-side words. Output {"items":[{ar,en}...]}.`;
+        const repaired = (await generateBundle(repairPayload, repairSys))
+          .map(x => normalizePair(x, direction)).filter(Boolean);
+        items = uniqByText([...checked, ...repaired]);
+      }
+    }
 
-    const raw = resp.choices?.[0]?.message?.content ?? "{}";
-    let parsed = null; try { parsed = JSON.parse(raw); } catch { parsed = extractJSON(raw) || {}; }
-
-    let items = coerceItems(parsed).map(x => normalizePair(x, direction)).filter(Boolean);
-
-    // enforce time adjunct if requested
+    // Enforce time adjunct lightly if requested
     if (mustUseTime) {
-      const tt = constraints.time_text;
+      const tt = payload.time;
       items = items.map((it, idx) => {
-        const hasTime = /\b(اليوم|أمس|غدًا|صباحًا|مساءً|الليلة|الآن|غداً|غذا|tomorrow|yesterday|today|in the (morning|evening|afternoon)|tonight)\b/iu.test((it.ar || "") + " " + (it.en || ""));
-        if (!hasTime && idx % 2 === 0) { // add to about half
+        const combined = (it.ar || "") + " " + (it.en || "");
+        const hasTime = /\b(اليوم|أمس|غدًا|صباحًا|مساءً|الليلة|الآن|غداً|tomorrow|yesterday|today|in the (morning|evening|afternoon)|tonight)\b/iu.test(combined);
+        if (!hasTime && idx % 2 === 0) {
           if (direction === "ar2en") return { ...it, ar: it.ar.replace(/[\.\!؟]*\s*$/, `، ${tt}.`) };
           else return { ...it, en: it.en.replace(/[.!?]*\s*$/, `, ${tt}.`) };
         }
@@ -152,15 +250,13 @@ Obey constraints strictly:
     }
 
     items = uniqByText(items).slice(0, N);
-
     if (!items.length) {
-      // Safe fallback (still honoring direction)
       items = direction === "ar2en"
         ? [{ ar: "ذهبتُ إلى السوق صباحًا.", en: "I went to the market in the morning." }]
         : [{ en: "I study Arabic every day.", ar: "أدرسُ العربية كلَّ يوم." }];
     }
 
-    res.status(200).json({ ok: true, items, sentences: items, list: items, seed });
+    res.status(200).json({ ok: true, items, sentences: items, list: items, seed, rules, hits_enforced: !!(lexicon && lexicon.length) });
   } catch (err) {
     console.error(err);
     res.status(500).json({ ok: false, error: "Internal error", detail: String(err && err.message || err) });
