@@ -1,24 +1,14 @@
-// Clean, validated _lib.cjs (CommonJS)
+// _lib.cjs — with meaningful sentence templates
 const fs = require("fs");
 const path = require("path");
 const https = require("https");
 
-function exists(p) {
-  try { fs.statSync(p); return true; } catch { return false; }
-}
-
-function readJSON(abs) {
-  try { return JSON.parse(fs.readFileSync(abs, "utf8")); }
-  catch { return null; }
-}
+function exists(p) { try { fs.statSync(p); return true; } catch { return false; } }
+function readJSON(abs) { try { return JSON.parse(fs.readFileSync(abs, "utf8")); } catch { return null; } }
 
 function findFirstExisting(relPaths) {
   const tried = new Set();
-  const bases = [
-    process.cwd(),
-    path.resolve(__dirname),
-    path.resolve(__dirname, "..")
-  ];
+  const bases = [process.cwd(), path.resolve(__dirname), path.resolve(__dirname, "..")];
   for (const rel of relPaths) {
     for (const base of bases) {
       const abs = path.resolve(base, rel);
@@ -122,27 +112,55 @@ function pick(arr, n){
   const a = Array.isArray(arr) ? arr.slice() : [];
   const out = [];
   const target = Math.max(1, Math.min(Number(n)||5, 50));
-  while (a.length && out.length < target) {
+  while (out.length < target) {
+    if (!a.length) break;
     out.push(a.splice(Math.floor(Math.random()*a.length),1)[0]);
+  }
+  // If not enough unique items, allow reuse
+  while (out.length < target && arr && arr.length) {
+    out.push(arr[Math.floor(Math.random()*arr.length)]);
   }
   return out;
 }
 
-function makeSimpleSentences(lex, { size=5, direction="ar2en" }={}){
+// === NEW: template-based meaningful sentences ===
+const TEMPLATES = [
+  { ar: "أنا أرى {ar}.",            en: "I see the {en}." },
+  { ar: "أنا أحب {ar}.",            en: "I like the {en}." },
+  { ar: "أنا أريد {ar}.",           en: "I want the {en}." },
+  { ar: "هذا هو {ar}.",             en: "This is the {en}." },
+  { ar: "لدينا {ar}.",              en: "We have the {en}." },
+  { ar: "هل لديك {ar}؟",            en: "Do you have the {en}?" },
+  { ar: "أين {ar}؟",                en: "Where is the {en}?" },
+  { ar: "أنا أتعلم كلمة: {ar}.",    en: "I am learning the word: {en}." },
+  { ar: "أحتاج إلى {ar}.",          en: "I need the {en}." },
+  { ar: "أنا أبحث عن {ar}.",        en: "I am looking for the {en}." }
+];
+
+function fillTemplate(tpl, ar, en) {
+  return { ar: tpl.ar.replace("{ar}", ar), en: tpl.en.replace("{en}", en) };
+}
+
+function makeTemplateSentences(lex, { size=5, direction="ar2en" }={}){
   const chosen = pick(lex||[], size);
   const items = [];
-  for (const it of chosen) {
-    const ar = String((it && it.ar) || "").trim();
-    const en = String((it && it.en) || "").trim();
-    if (!ar && !en) continue;
+  for (let i=0; i<chosen.length; i++){
+    const it = chosen[i] || {};
+    const ar = String(it.ar||"").trim();
+    const en = String(it.en||"").trim() || "word";
+    const tpl = TEMPLATES[i % TEMPLATES.length];
+    const s = fillTemplate(tpl, ar, en);
     if (direction === "en2ar") {
-      items.push({ prompt: en || ar, answer: ar || en, ar, en });
+      items.push({ prompt: s.en, answer: s.ar, ar, en });
     } else {
-      items.push({ prompt: ar || en, answer: en || ar, ar, en });
+      items.push({ prompt: s.ar, answer: s.en, ar, en });
     }
   }
   return items;
 }
+
+// Backward-compatible name
+function makeSimpleSentences(lex, opts){ return makeTemplateSentences(lex, opts); }
 
 async function postJSON(url, body, headers={}){
   if (typeof fetch === "function") {
@@ -151,28 +169,19 @@ async function postJSON(url, body, headers={}){
     let json = null; try { json = JSON.parse(text); } catch {}
     return { ok: r.ok, status: r.status, json, text };
   }
-  // Node https fallback
   return new Promise((resolve, reject) => {
     try {
       const u = new URL(url);
       const data = Buffer.from(JSON.stringify(body));
       const req = https.request({
-        method: "POST",
-        hostname: u.hostname,
-        path: u.pathname + (u.search || ""),
-        port: u.port || 443,
+        method: "POST", hostname: u.hostname,
+        path: u.pathname + (u.search || ""), port: u.port || 443,
         headers: { "Content-Type":"application/json", "Content-Length": data.length, ...headers }
       }, (res) => {
-        let buf = "";
-        res.on("data", (d) => buf += d);
-        res.on("end", () => {
-          let json = null; try { json = JSON.parse(buf); } catch {}
-          resolve({ ok: res.statusCode>=200 && res.statusCode<300, status: res.statusCode, json, text: buf });
-        });
+        let buf = ""; res.on("data", (d) => buf += d);
+        res.on("end", () => { let json=null; try{ json=JSON.parse(buf);}catch{}; resolve({ ok: res.statusCode>=200&&res.statusCode<300, status: res.statusCode, json, text: buf }); });
       });
-      req.on("error", reject);
-      req.write(data);
-      req.end();
+      req.on("error", reject); req.write(data); req.end();
     } catch (e) { reject(e); }
   });
 }
@@ -181,6 +190,7 @@ module.exports = {
   loadGlossary,
   extractLexicon,
   makeSimpleSentences,
+  makeTemplateSentences,
   postJSON,
   normalizeGlossaryForUI,
   getSemestersList
