@@ -1,0 +1,95 @@
+
+/* src/styles/responsive.css */
+/* Container + safe-area */
+:root{
+  --container-w: 1160px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-6: 24px;
+}
+html, body { height: 100%; }
+body {
+  margin: 0;
+  padding: 0;
+  background: radial-gradient(1200px 500px at 70% -200px, #132135 0%, transparent 60%) #0b1320;
+  color: #e9eef8;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+.container {
+  max-width: var(--container-w);
+  margin: 0 auto;
+  padding: calc(env(safe-area-inset-top, 0px) + var(--space-6)) var(--space-4) var(--space-6);
+}
+
+/* Fluid type */
+h1 { font-size: clamp(22px, 3.2vw + 10px, 42px); line-height: 1.15; margin: 0 0 var(--space-6); }
+.title { font-size: clamp(18px, 2.2vw + 8px, 28px); line-height: 1.2; }
+
+/* Cards grid: 1 col on phones, 2 on tablets, 3 on desktop */
+.cards {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 16px;
+}
+@media (min-width: 680px){
+  .cards { grid-template-columns: repeat(2, 1fr); }
+}
+@media (min-width: 1060px){
+  .cards { grid-template-columns: repeat(3, 1fr); }
+}
+
+/* Make Tabs horizontally scrollable on small screens */
+.tabs-scroll {
+  display: flex;
+  gap: 10px;
+  overflow-x: auto;
+  white-space: nowrap;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+  padding-bottom: 6px;
+}
+.tabs-scroll::-webkit-scrollbar { height: 6px; }
+.tabs-scroll::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.08); border-radius: 4px; }
+
+/* Touch-friendly buttons and inputs */
+.btn, button, .input, input {
+  min-height: 44px;           /* Apple HIG touch target */
+  padding: 10px 14px;
+  font-size: 16px;
+}
+.btn { border-radius: 12px; border: 1px solid rgba(255,255,255,0.08); background: rgba(255,255,255,0.04); }
+.btn.brand { background: linear-gradient(180deg, #4560ff 0%, #2b45d6 100%); color: #fff; border-color: transparent; }
+.btn.ghost { background: transparent; border-color: rgba(255,255,255,0.12); }
+.btn.disabled { opacity: .6; pointer-events: none; }
+.input { width: 100%; border-radius: 12px; border: 1px solid rgba(255,255,255,0.12); background: rgba(255,255,255,0.02); color: #e9eef8; }
+.input:focus, .btn:focus-visible { outline: 2px solid #7aa2ff; outline-offset: 2px; }
+
+/* Header stacking and safety */
+.header { position: sticky; top: 0; z-index: 60; backdrop-filter: saturate(120%) blur(10px); background: rgba(7,12,22,0.65); }
+.header-inner { padding: 10px max(12px, env(safe-area-inset-left)) 10px max(12px, env(safe-area-inset-right)); display:flex; align-items:center; justify-content:space-between; gap:10px; }
+.brand { display:flex; align-items:center; gap:10px; }
+.brand-badge { width:32px; height:32px; border-radius:10px; display:grid; place-items:center; background:#13294c; color:#a8c4ff; font-weight:700; }
+.header-actions { display:flex; align-items:center; gap:10px; }
+
+/* Cards */
+.card, .Card, .CardBody, .card-body {
+  background: radial-gradient(400px 120px at 60% -60px, rgba(255,255,255,0.06), transparent 70%) rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 16px;
+}
+.card-body { padding: 16px; }
+@media (min-width: 680px){ .card-body { padding: 18px; } }
+@media (min-width: 1060px){ .card-body { padding: 20px; } }
+
+/* Make large heroes not eat clicks */
+.hero { position: relative; z-index: 1; padding: 16px; border-radius: 16px; background: linear-gradient(180deg, rgba(255,255,255,0.06), rgba(255,255,255,0.02)); }
+
+/* Utility spacing */
+.mt-16{ margin-top:16px; }
+.mb-16{ margin-bottom:16px; }
+.w-full{ width:100%; }
+.flex{ display:flex; }
+.items-center{ align-items:center; }
+.gap-16{ gap:16px; }
