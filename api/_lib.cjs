@@ -40,21 +40,39 @@ function readJSONIfExists(abs) {
   catch (e) { console.error("JSON parse error for", abs, e); return null; }
 }
 
+
 function findFirstExisting(relPaths) {
+  const tried = new Set();
+  const bases = [
+    process.cwd(),
+    path.resolve(__dirname),
+    path.resolve(__dirname, "..")
+  ];
   for (const rel of relPaths) {
-    const abs = path.resolve(process.cwd(), rel);
-    if (exists(abs)) return abs;
+    for (const base of bases) {
+      const abs = path.resolve(base, rel);
+      if (tried.has(abs)) continue;
+      tried.add(abs);
+      if (exists(abs)) return abs;
+    }
   }
+  return null;
+}
   return null;
 }
 
 // Try common locations for glossary/semester data.
 function loadGlossary() {
   const candidates = [
-    "api/Glossary.json",
-    "src/lib/Glossary.json",
-    "public/Glossary.json"
-  ];
+  // project-root relative
+  "public/Glossary.json",
+  "src/lib/Glossary.json",
+  "api/Glossary.json",
+  // api-dir relative
+  "../public/Glossary.json",
+  "../src/lib/Glossary.json",
+  "Glossary.json"
+];
   const abs = findFirstExisting(candidates);
   if (!abs) return { data: null, source: null };
   const data = readJSONIfExists(abs);
