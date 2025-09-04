@@ -1,3 +1,3 @@
 
-// Single-sentence endpoint forwards to bundle for consistency.
+// File: pages/api/sentence.js
 export { default } from "./sentence-bundle";
