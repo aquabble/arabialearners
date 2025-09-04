@@ -35,19 +35,20 @@ export default function TranslateGame({ user }){
 
   async function fetchUnitChapterOptions(){
     try {
-      const res = await fetch('/semester1.json', { cache: 'no-store' })
+      const res = await fetch('/api/glossary', { cache: 'no-store' })
       const data = await res.json()
       const units = ['All']
       const byUnit = {}
-      const arr = Array.isArray(data?.units) ? data.units : []
-      for (const u of arr) {
-        const U = u?.unit
-        if (!U) continue
-        const unitName = U.name || U.id
-        if (!unitName) continue
-        if (!units.includes(unitName)) units.push(unitName)
-        const chs = Array.isArray(U.chapters) ? U.chapters : []
-        byUnit[unitName] = ['All', ...chs.map(ch => ch?.name || ch?.id).filter(Boolean)]
+      const sems = Array.isArray(data?.semesters) ? data.semesters : []
+      for (const sem of sems) {
+        const ulist = Array.isArray(sem?.units) ? sem.units : []
+        for (const U of ulist) {
+          const unitName = U?.name || U?.id
+          if (!unitName) continue
+          if (!units.includes(unitName)) units.push(unitName)
+          const chs = Array.isArray(U?.chapters) ? U.chapters : []
+          byUnit[unitName] = ['All', ...chs.map(ch => ch?.name || ch?.id).filter(Boolean)]
+        }
       }
       setUnitOptions(units)
       setChaptersByUnit(byUnit)

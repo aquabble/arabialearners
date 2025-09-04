@@ -19,28 +19,31 @@ function tokenizeAR(s){ return String(s||"").trim().split(/\s+/).filter(Boolean)
 function tokenizeEN(s){ return String(s||"").trim().split(/\s+/).filter(Boolean); }
 function shuffle(a){ const b = a.slice(); for(let i=b.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [b[i],b[j]]=[b[j],b[i]] } return b; }
 
+
 function normalizeVocab(raw){
   const out = [];
-  const units = Array.isArray(raw?.units) ? raw.units : [];
-  for (const u of units) {
-    const U = u?.unit;
-    if (!U) continue;
-    const unitName = (U.name || U.id || "Unit").toString();
-    const chapters = Array.isArray(U.chapters) ? U.chapters : [];
-    for (const ch of chapters) {
-      const chapterName = (ch?.name || ch?.id || "").toString() || null;
-      const vocab = Array.isArray(ch?.vocab) ? ch.vocab : [];
-      for (const item of vocab) {
-        const ar = (item && (item.ar || item.arabic || item.word)) || "";
-        const en = (item && (item.en || item.english || item.translation || item.gloss)) || "";
-        const AR = String(ar).trim();
-        if (!AR) continue;
-        out.push({ ar: AR, en: String(en || "").trim(), unit: unitName, chapter: chapterName });
+  const sems = Array.isArray(raw?.semesters) ? raw.semesters : [];
+  for (const sem of sems) {
+    const units = Array.isArray(sem?.units) ? sem.units : [];
+    for (const u of units) {
+      const unitName = (u?.name || u?.id || "Unit").toString();
+      const chapters = Array.isArray(u?.chapters) ? u.chapters : [];
+      for (const ch of chapters) {
+        const chapterName = (ch?.name || ch?.id || "").toString() || null;
+        const vocab = Array.isArray(ch?.vocab) ? ch.vocab : [];
+        for (const item of vocab) {
+          const ar = (item && (item.ar || item.arabic || item.word)) || "";
+          const en = (item && (item.en || item.english || item.translation || item.gloss)) || "";
+          const AR = String(ar).trim();
+          if (!AR) continue;
+          out.push({ ar: AR, en: String(en || "").trim(), unit: unitName, chapter: chapterName });
+        }
       }
     }
   }
   return out;
 }
+
 
 export default async function handler(req){
   if (req.method !== "POST") return json({ error: "Method Not Allowed" }, 405);

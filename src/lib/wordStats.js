@@ -14,16 +14,17 @@ const LS_KEY='word_stats_v2';
 
 export async function loadVocabMap(){
   try{
-    const res = await fetch('/semester1.json', { cache: 'force-cache' });
-    if(!res.ok) throw new Error('semester1.json missing');
+    const res = await fetch('/api/glossary?full=1', { cache: 'force-cache' });
+    if(!res.ok) throw new Error('glossary not available');
     const data = await res.json();
     const map = new Map();
-    const units = Array.isArray(data?.units)?data.units:[];
-    for(const u of units){
-      const chs = u?.unit?.chapters || [];
-      for(const ch of chs){
-        const vocab = Array.isArray(ch?.vocab)?ch.vocab:[];
-        for(const item of vocab){
+    const semesters = Array.isArray(data?.semesters) ? data.semesters : [];
+    for (const sem of semesters) {
+      const units = Array.isArray(sem?.units) ? sem.units : [];
+      for (const u of units) {
+        const chs = Array.isArray(u?.chapters) ? u.chapters : [];
+        for (const ch of chs) {
+          const vocab = Array.isArray(ch?.vocab) ? ch.vocab : [];
           const arRaw = String(item?.ar||''); const key = normalizeToken(arRaw);
           const en = String(item?.en||'').trim();
           if(key) map.set(key, { ar: arRaw, en, def: en });
