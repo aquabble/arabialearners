@@ -1,4 +1,6 @@
 
+import { createRequire } from 'module';
+const require = createRequire(import.meta.url);
 const { loadGlossary } = require("./_lib.cjs");
 
 function send(res, code, obj) {
@@ -12,9 +14,10 @@ function send(res, code, obj) {
   }
 }
 
-function handler(req, res) {
+export default function handler(req, res) {
   if (req.method === "OPTIONS") return send(res, 200, { ok: true });
-  const node = process.version;
+
+  let node = process.version || "unknown";
   const { data, source } = loadGlossary();
   const info = {
     ok: true,
@@ -29,6 +32,3 @@ function handler(req, res) {
   };
   send(res, 200, info);
 }
-
-module.exports = handler;
-module.exports.default = handler;

@@ -1,5 +1,25 @@
 
+import { createRequire } from 'module';
+const require = createRequire(import.meta.url);
 const { loadGlossary, extractLexicon, makeSimpleSentences, postJSON } = require("./_lib.cjs");
+
+function send(res, code, obj) {
+  try {
+    res.statusCode = code;
+    res.setHeader("Content-Type", "application/json");
+    res.setHeader("Access-Control-Allow-Origin", "*");
+    res.end(JSON.stringify(obj));
+  } catch (e) {
+    console.error("send error", e);
+  }
+}
+
+function difficultyToTemp(difficulty) {
+  const d = String(difficulty||"").toLowerCase();
+  if (d === "easy") return 0.2;
+  if (d === "hard") return 0.9;
+  return 0.5; // medium/default
+}
 
 function readBody(req) {
   return new Promise((resolve) => {
@@ -14,26 +34,6 @@ function readBody(req) {
       resolve({});
     }
   });
-}
-
-function send(res, code, obj) {
-  try {
-    res.statusCode = code;
-    res.setHeader("Content-Type", "application/json");
-    res.setHeader("Access-Control-Allow-Origin", "*");
-    res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
-    res.setHeader("Access-Control-Allow-Headers", "Content-Type");
-    res.end(JSON.stringify(obj));
-  } catch (e) {
-    console.error("send error", e);
-  }
-}
-
-function difficultyToTemp(diff) {
-  const d = String(diff || "").toLowerCase();
-  if (d.includes("easy")) return 0.3;
-  if (d.includes("hard") || d.includes("difficult")) return 0.9;
-  return 0.6;
 }
 
 async function generateWithLLM({ lex, size, direction, difficulty }) {
@@ -52,62 +52,58 @@ Rules:
 - Direction:
   - "ar2en": prompt is Arabic, answer is English.
   - "en2ar": prompt is English, answer is Arabic.
-- Each item must include both "ar" and "en" fields (the bilingual pair).
-- Keep sentences short, concrete, and CEFR A1-A2 unless difficulty=hard, then A2-B1.
-- Prefer using the provided vocabulary when possible. Stay simple and grammatical.
-- Do not include any additional commentary.`;
+- Use only the vocabulary supplied as JSON in LEX; don't invent topics.
+- Stay short and beginner-friendly unless DIFFICULTY says otherwise.`;
 
-  const user = {
-    task: "Make bilingual sentence pairs for practice",
-    size,
-    direction,
-    difficulty,
-    vocabulary: sampleLex,
-    constraints: {
-      maxWordsPerSentence: (String(difficulty||"").toLowerCase().includes("hard") ? 14 : 9)
-    }
-  };
-
-  const body = {
-    model,
-    response_format: { type: "json_object" },
-    temperature: temp,
-    messages: [
-      { role: "system", content: sys },
-      { role: "user", content: JSON.stringify(user) }
-    ]
-  };
-
-  const r = await postJSON(`${baseURL}/chat/completions`, body, {
-    "Authorization": `Bearer ${apiKey}`
+  const user = JSON.stringify({
+    size: Math.max(1, Math.min(50, Number(size||5))),
+    direction: direction || "ar2en",
+    difficulty: difficulty || "medium",
+    lex: sampleLex
   });
 
-  if (!r || !r.ok) {
-    console.error("OpenAI call failed", r && r.status, r && r.text);
+  try {
+    const resp = await postJSON(`${baseURL}/chat/completions`, {
+      model,
+      temperature: temp,
+      response_format: { type: "json_object" },
+      messages: [
+        { role: "system", content: sys },
+        { role: "user", content: user }
+      ]
+    }, {
+      Authorization: `Bearer ${apiKey}`,
+      "Content-Type": "application/json"
+    });
+
+    const content = String(resp?.choices?.[0]?.message?.content || "{}");
+    const parsed = JSON.parse(content);
+    const arr = Array.isArray(parsed?.items) ? parsed.items : [];
+    const items = arr.map((it) => {
+      const ar = String(it.ar || it.AR || it.target || "").trim();
+      const en = String(it.en || it.EN || it.gloss || "").trim();
+      const pair = (direction === "en2ar")
+        ? { prompt: en, answer: ar, ar, en }
+        : { prompt: ar, answer: en, ar, en };
+      return pair;
+    });
+
+    return items.length ? items : null;
+  } catch (e) {
+    console.error("LLM gen error", e);
     return null;
   }
-  const data = r.json || {};
-  const content = data?.choices?.[0]?.message?.content || "{}";
-  let parsed;
-  try { parsed = JSON.parse(content); } catch { parsed = {}; }
-  let items = Array.isArray(parsed.items) ? parsed.items : [];
-
-  items = items.slice(0, size).map(it => {
-    const ar = String(it.ar || it.AR || it.target || "").trim();
-    const en = String(it.en || it.EN || it.gloss || "").trim();
-    const pair = direction === "en2ar"
-      ? { prompt: en, answer: ar, ar, en }
-      : { prompt: ar, answer: en, ar, en };
-    return pair;
-  });
-
-  return items.length ? items : null;
 }
 
-async function handler(req, res) {
+export default async function handler(req, res) {
   try {
     if (req.method === "OPTIONS") return send(res, 200, { ok: true });
     if (req.method !== "POST") return send(res, 405, { ok:false, error:"Method Not Allowed" });
+
+    // CORS
+    res.setHeader("Access-Control-Allow-Origin", "*");
+    res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
+    res.setHeader("Access-Control-Allow-Headers", "Content-Type");
 
     const body = await readBody(req);
     const {
@@ -129,9 +125,6 @@ async function handler(req, res) {
     return send(res, 200, {
       ok: true,
       meta: {
-        usedLexicon: lex.length,
-        unit,
-        chapter,
         difficulty,
         direction,
         llm: !!(items && items.length && process.env.OPENAI_API_KEY)
@@ -143,6 +136,3 @@ async function handler(req, res) {
     return send(res, 200, { ok:false, error:String(e && e.message || e) });
   }
 }
-
-module.exports = handler;
-module.exports.default = handler;

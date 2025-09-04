@@ -3,9 +3,11 @@
  * GET /api/glossary
  * Returns a UI-friendly glossary skeleton (semesters/units/chapters only).
  */
+import { createRequire } from 'module';
+const require = createRequire(import.meta.url);
 const { loadGlossary, normalizeGlossaryForUI } = require("./_lib.cjs");
 
-module.exports = (req, res) => {
+export default (req, res) => {
   // CORS for dev convenience
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
