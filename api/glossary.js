@@ -1,16 +1,18 @@
 
-// File: pages/api/glossary.js (Pages Router)
-import { findGlossary, normalizeGlossaryForUI } from "@/src/lib/glossary-server";
+/**
+ * GET /api/glossary
+ * Returns a UI-friendly glossary skeleton (semesters/units/chapters only).
+ */
+const { loadGlossary, normalizeGlossaryForUI } = require("./_lib.js");
 
-export const config = { api: { bodyParser: false } };
+module.exports = (req, res) => {
+  // CORS for dev convenience
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+  if (req.method === "OPTIONS") return res.status(200).end();
 
-export default function handler(req, res) {
-  const { data, path, tried } = findGlossary(true);
-  if (!data) {
-    res.status(404).json({ ok:false, error:"Glossary.json not found", tried });
-    return;
-  }
-  const semesters = normalizeGlossaryForUI(data);
-  res.setHeader("Cache-Control", "no-store");
-  res.status(200).json({ ok:true, semesters, source:path });
-}
+  const { data, source } = loadGlossary();
+  const normalized = normalizeGlossaryForUI(data);
+  res.status(200).json({ ok: true, source, ...normalized });
+};
