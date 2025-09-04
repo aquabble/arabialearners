@@ -1,1 +1,0 @@
-import { auth } from './firebase';import { onAuthStateChanged } from 'firebase/auth';export function whenAuthed(){return new Promise(res=>{const u=onAuthStateChanged(auth,usr=>{if(usr){u();res(usr)}})})}
