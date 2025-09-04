@@ -1,34 +1,55 @@
-
 export const config = { runtime: "nodejs" };
 import { createRequire } from 'module';
 const require = createRequire(import.meta.url);
-// Ensure Glossary.json is bundled in the function package
+// Ensure Glossary.json is bundled with the function
 try { require("./Glossary.json"); } catch {}
 
-const { loadGlossary, normalizeGlossaryForUI, getSemestersList } = require("./_lib.cjs");
-export default async (req, res) => {
+const lib = require("./_lib.cjs");
+const loadGlossary = lib.loadGlossary;
+const getSemestersList = lib.getSemestersList;
+const normalizeGlossaryForUI = lib.normalizeGlossaryForUI;
+
+function hasParam(urlStr, name){
+  const u = String(urlStr || "");
+  return u.includes(name + "=1") || u.includes(name + "=true");
+}
+
+export default (req, res) => {
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
   if (req.method === "OPTIONS") return res.status(200).end();
+
   try {
-    const url = new URL(req.url, `http://${req.headers.host}`);
-    const full = url.searchParams.get("full");
-    let { data, source } = loadGlossary();
-    if (!data && typeof fetch === "function") {
-      try {
-        const http = await fetch(new URL("/Glossary.json", url.origin), { cache: "no-store" });
-        if (http.ok) { data = await http.json(); source = url.origin + "/Glossary.json"; }
-      } catch {}
-    }
+    const { data, source } = loadGlossary();
     if (!data) return res.status(200).json({ ok:true, source:null, semesters: [] });
+
+    const full = hasParam(req.url, "full");
+
     if (full) {
-      const sems = getSemestersList(data) || [];
+      const sems = (typeof getSemestersList === "function") ? (getSemestersList(data) || []) : [];
       return res.status(200).json({ ok:true, source, semesters: sems });
     }
-    const normalized = normalizeGlossaryForUI(data);
-    res.status(200).json({ ok:true, source, ...normalized });
+
+    let payload;
+    if (typeof normalizeGlossaryForUI === "function") {
+      payload = normalizeGlossaryForUI(data);
+    } else {
+      // Fallback skeleton
+      const sems = (typeof getSemestersList === "function") ? (getSemestersList(data) || []) : [];
+      payload = {
+        semesters: (sems || []).map(s => ({
+          id: s && s.id, name: s && s.name,
+          units: Array.isArray(s && s.units) ? s.units.map(u => ({
+            id: u && u.id, name: u && u.name,
+            chapters: Array.isArray(u && u.chapters) ? u.chapters.map(c => ({ id: c && c.id, name: c && c.name })) : []
+          })) : []
+        }))
+      };
+    }
+
+    return res.status(200).json({ ok:true, source, ...payload });
   } catch (e) {
-    res.status(500).json({ ok:false, error: String(e?.message||e) });
+    return res.status(500).json({ ok:false, error: String(e && e.message || e) });
   }
 }
