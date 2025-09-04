@@ -1,4 +1,5 @@
 
+export const config = { runtime: "nodejs" };
 import { createRequire } from 'module';
 const require = createRequire(import.meta.url);
 const { loadGlossary, extractLexicon, makeSimpleSentences, postJSON } = require("./_lib.cjs");
@@ -8,17 +9,17 @@ function send(res, code, obj) {
     res.statusCode = code;
     res.setHeader("Content-Type", "application/json");
     res.setHeader("Access-Control-Allow-Origin", "*");
+    res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
+    res.setHeader("Access-Control-Allow-Headers", "Content-Type");
     res.end(JSON.stringify(obj));
-  } catch (e) {
-    console.error("send error", e);
-  }
+  } catch (e) {}
 }
 
-function difficultyToTemp(difficulty) {
+function difficultyToTemp(difficulty){
   const d = String(difficulty||"").toLowerCase();
-  if (d === "easy") return 0.2;
-  if (d === "hard") return 0.9;
-  return 0.5; // medium/default
+  if (d.includes("easy")) return 0.2;
+  if (d.includes("hard")) return 0.9;
+  return 0.5;
 }
 
 function readBody(req) {
@@ -30,9 +31,7 @@ function readBody(req) {
         try { resolve(JSON.parse(data || "{}")); }
         catch { resolve({}); }
       });
-    } catch (e) {
-      resolve({});
-    }
+    } catch (e) { resolve({}); }
   });
 }
 
@@ -52,8 +51,9 @@ Rules:
 - Direction:
   - "ar2en": prompt is Arabic, answer is English.
   - "en2ar": prompt is English, answer is Arabic.
-- Use only the vocabulary supplied as JSON in LEX; don't invent topics.
-- Stay short and beginner-friendly unless DIFFICULTY says otherwise.`;
+- Keep sentences short and CEFR A1–A2 unless difficulty=hard.
+- Use only the provided LEX terms when possible, otherwise everyday language.
+- No commentary.`;
 
   const user = JSON.stringify({
     size: Math.max(1, Math.min(50, Number(size||5))),
@@ -63,7 +63,7 @@ Rules:
   });
 
   try {
-    const resp = await postJSON(`${baseURL}/chat/completions`, {
+    const r = await postJSON(`${baseURL}/chat/completions`, {
       model,
       temperature: temp,
       response_format: { type: "json_object" },
@@ -76,18 +76,20 @@ Rules:
       "Content-Type": "application/json"
     });
 
-    const content = String(resp?.choices?.[0]?.message?.content || "{}");
-    const parsed = JSON.parse(content);
+    if (!r?.ok) {
+      console.error("OpenAI call failed", r?.status, r?.text);
+      return null;
+    }
+    const content = String(r?.json?.choices?.[0]?.message?.content || "{}");
+    let parsed; try { parsed = JSON.parse(content); } catch { parsed = {}; }
     const arr = Array.isArray(parsed?.items) ? parsed.items : [];
     const items = arr.map((it) => {
       const ar = String(it.ar || it.AR || it.target || "").trim();
       const en = String(it.en || it.EN || it.gloss || "").trim();
-      const pair = (direction === "en2ar")
+      return (direction === "en2ar")
         ? { prompt: en, answer: ar, ar, en }
         : { prompt: ar, answer: en, ar, en };
-      return pair;
     });
-
     return items.length ? items : null;
   } catch (e) {
     console.error("LLM gen error", e);
@@ -99,11 +101,6 @@ export default async function handler(req, res) {
   try {
     if (req.method === "OPTIONS") return send(res, 200, { ok: true });
     if (req.method !== "POST") return send(res, 405, { ok:false, error:"Method Not Allowed" });
-
-    // CORS
-    res.setHeader("Access-Control-Allow-Origin", "*");
-    res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
-    res.setHeader("Access-Control-Allow-Headers", "Content-Type");
 
     const body = await readBody(req);
     const {
@@ -121,18 +118,9 @@ export default async function handler(req, res) {
     if (!items || !items.length) {
       items = makeSimpleSentences(lex, { size, direction, difficulty });
     }
-
-    return send(res, 200, {
-      ok: true,
-      meta: {
-        difficulty,
-        direction,
-        llm: !!(items && items.length && process.env.OPENAI_API_KEY)
-      },
-      items
-    });
+    return send(res, 200, { ok:true, meta:{ difficulty, direction, llm: !!(items && process.env.OPENAI_API_KEY) }, items });
   } catch (e) {
     console.error("sentence-bundle fatal", e);
-    return send(res, 200, { ok:false, error:String(e && e.message || e) });
+    return send(res, 500, { ok:false, error:String(e?.message||e) });
   }
 }

@@ -64,11 +64,9 @@ function findFirstExisting(relPaths) {
 // Try common locations for glossary/semester data.
 function loadGlossary() {
   const candidates = [
-  // project-root relative
   "public/Glossary.json",
   "src/lib/Glossary.json",
   "api/Glossary.json",
-  // api-dir relative
   "../public/Glossary.json",
   "../src/lib/Glossary.json",
   "Glossary.json"
@@ -208,3 +206,5 @@ module.exports = {
 };
 
 module.exports.getSemestersList = typeof getSemestersList === "function" ? getSemestersList : undefined;
+
+module.exports.normalizeGlossaryForUI = normalizeGlossaryForUI;

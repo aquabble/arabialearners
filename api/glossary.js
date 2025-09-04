@@ -1,34 +1,29 @@
 
-/**
- * GET /api/glossary
- * Returns a UI-friendly glossary skeleton (semesters/units/chapters only).
- */
-const { loadGlossary, normalizeGlossaryForUI } = require("./_lib.cjs");
+export const config = { runtime: "nodejs" };
+import { createRequire } from 'module';
+const require = createRequire(import.meta.url);
+const { loadGlossary, normalizeGlossaryForUI, getSemestersList } = require("./_lib.cjs");
 
+export default (req, res) => {
+  try {
+    res.setHeader("Access-Control-Allow-Origin", "*");
+    res.setHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
+    res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+    if (req.method === "OPTIONS") return res.status(200).end();
 
-module.exports = (req, res) => {
-  // CORS for dev convenience
-  res.setHeader("Access-Control-Allow-Origin", "*");
-  res.setHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
-  if (req.method === "OPTIONS") return res.status(200).end();
+    const url = new URL(req.url, `http://${req.headers.host}`);
+    const full = url.searchParams.get("full");
 
-  const url = new URL(req.url, `http://${req.headers.host}`);
-  const full = url.searchParams.get("full");
+    const { data, source } = loadGlossary();
+    if (!data) return res.status(200).json({ ok:true, source:null, semesters: [] });
 
-  const { data, source } = loadGlossary();
-  if (!data) return res.status(200).json({ ok:true, source:null, semesters: [] });
-
-  if (full) {
-    // Return full semesters (with vocab) using the unified helper
-    const sems = (typeof getSemestersList === 'function')
-      ? getSemestersList(data)
-      : (Array.isArray(data?.semesters) ? data.semesters : (Array.isArray(data) ? (data.find(x => (x?.type||'').toLowerCase()==='semesters')?.items || []) : []));
-
-    return res.status(200).json({ ok: true, source, semesters: sems || [] });
+    if (full) {
+      const sems = getSemestersList(data) || [];
+      return res.status(200).json({ ok:true, source, semesters: sems });
+    }
+    const normalized = normalizeGlossaryForUI(data);
+    return res.status(200).json({ ok:true, source, ...normalized });
+  } catch (e) {
+    return res.status(500).json({ ok:false, error:String(e?.message||e) });
   }
-
-  const normalized = normalizeGlossaryForUI(data);
-  res.status(200).json({ ok: true, source, ...normalized });
 };
-
