@@ -1,53 +1,60 @@
-import OpenAI from "openai";
-export const config = { runtime: "edge" };
+// DROP-IN REPLACEMENT
+// File: api/sentence.js
+// - Increases temperature and adds penalties for more diverse outputs.
+
+import { OpenAI } from "openai";
+
 const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
-function json(data, status=200){ return new Response(JSON.stringify(data), { status, headers: { "Content-Type": "application/json" } }); }
-const safe = (v)=> String(v == null ? "" : v).trim();
+export default async function handler(req, res) {
+  if (req.method !== "POST") {
+    res.status(405).json({ error: "Method not allowed" });
+    return;
+  }
 
-function lengthHintFromDifficulty(d){
-  return d === "short" ? "Keep the Arabic sentence concise (≈5–7 words)."
-       : d === "long"  ? "Use a longer Arabic sentence (≈13–20 words)."
-       : "Aim for a medium-length Arabic sentence (≈8–12 words).";
-}
+  try {
+    const body = req.body || {};
+    const difficulty = body.difficulty ?? "medium";
+    const unit = body.unit ?? "All";
+    const chapter = body.chapter ?? "All";
+    const direction = body.direction ?? "ar2en";
 
-export default async function handler(req){
-  if (req.method !== "POST") return json({ error:"Method Not Allowed" }, 405);
-  let body; try{ body = await req.json(); }catch{ return json({ error:"Bad JSON" }, 400); }
+    const sys = [
+      {
+        role: "system",
+        content:
+          "You are a sentence generator for Arabic learners. Produce one compact CEFR A2–B1 sentence. Output JSON with { item }."
+      }
+    ];
 
-  const { difficulty="medium", unit="All", chapter="All", direction="ar2en", topic="" } = body || {};
-  const key = (process.env && process.env.OPENAI_API_KEY) || "";
-  if (!key) return json({ error:"Server missing OPENAI_API_KEY" }, 500);
+    const user = [
+      {
+        role: "user",
+        content: JSON.stringify({ difficulty, unit, chapter, direction })
+      }
+    ];
 
-  const system = `You generate one Arabic↔English sentence pair for learners.
-  Output STRICT JSON: {"ar": "...", "en": "...", "tokens": {"ar": string[], "en": string[]}}.
-  Tokens must be whitespace-separated word tokens, no punctuation-only tokens.
-  Keep content classroom-safe and general.`;
-
-  const lengthHint = lengthHintFromDifficulty(difficulty);
-  const user = {
-    direction, unit, chapter, topic,
-    instruction: `Make a sentence relevant to "${unit}/${chapter}"${topic?` on "${topic}"`:""}. ${lengthHint}`
-  };
-
-  try{
     const resp = await client.chat.completions.create({
-      model: "gpt-4o-mini",
-      temperature: 0.3,
+      model: process.env.OPENAI_MODEL || "gpt-4o-mini",
+      temperature: 0.7,
+      top_p: 0.9,
+      frequency_penalty: 0.3,
+      presence_penalty: 0.2,
       response_format: { type: "json_object" },
-      messages: [
-        { role: "system", content: system },
-        { role: "user", content: JSON.stringify(user) }
-      ]
+      messages: [...sys, ...user]
     });
-    let content = resp.choices?.[0]?.message?.content || "{}";
-    let out; try{ out = JSON.parse(content) }catch{ out = {}; }
-    const ar = safe(out.ar);
-    const en = safe(out.en);
-    let tokensAr = Array.isArray(out?.tokens?.ar) ? out.tokens.ar : ar.split(/\s+/).filter(Boolean);
-    let tokensEn = Array.isArray(out?.tokens?.en) ? out.tokens.en : en.split(/\s+/).filter(Boolean);
-    return json({ ar, en, tokens: { ar: tokensAr, en: tokensEn } });
-  }catch(e){
-    return json({ error: String(e?.message || e) }, 502);
+
+    const txt = resp.choices?.[0]?.message?.content?.trim() || "{}";
+    let parsed;
+    try {
+      parsed = JSON.parse(txt);
+    } catch {
+      parsed = { item: null };
+    }
+    const item = parsed.item || parsed.sentence || parsed.data || null;
+    res.status(200).json({ item });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Internal error", detail: String(err && err.message || err) });
   }
 }
