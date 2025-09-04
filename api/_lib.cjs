@@ -11,13 +11,10 @@ function readJSON(abs) {
   catch (e) { return null; }
 }
 
+
 function findFirstExisting(relPaths) {
   const tried = new Set();
-  const bases = [
-    process.cwd(),
-    path.resolve(__dirname),
-    path.resolve(__dirname, "..")
-  ];
+  const bases = [process.cwd(), path.resolve(__dirname), path.resolve(__dirname, "..")];
   for (const rel of relPaths) {
     for (const base of bases) {
       const abs = path.resolve(base, rel);
@@ -28,16 +25,19 @@ function findFirstExisting(relPaths) {
   }
   return null;
 }
+  }
+  return null;
+}
 
 function loadGlossary() {
   const candidates = [
-    "public/Glossary.json",
-    "src/lib/Glossary.json",
-    "api/Glossary.json",
-    "../public/Glossary.json",
-    "../src/lib/Glossary.json",
-    "Glossary.json"
-  ];
+  "public/Glossary.json",
+  "src/lib/Glossary.json",
+  "api/Glossary.json",
+  "../public/Glossary.json",
+  "../src/lib/Glossary.json",
+  "Glossary.json"
+];
   const abs = findFirstExisting(candidates);
   if (!abs) return { data: null, source: null };
   const data = readJSON(abs);
@@ -72,7 +72,32 @@ function normalizeGlossaryForUI(data){
   };
 }
 
-function extractLexicon(obj, unitName="", chapterName=""){
+function extractLexicon(obj, unitName="", chapterName=""){ /* patched */
+  const uKey = __normKey(unitName);
+  const cKey = __normKey(chapterName);
+  const unitAll = !uKey || uKey === "all";
+  const chapAll = !cKey || cKey === "all";
+  const semesters = getSemestersList(obj);
+  const out = [];
+  for (const sem of (semesters||[])) {
+    for (const u of (sem.units||[])) {
+      const uName = (u?.name || u?.id || "").toString();
+      const uNorm = __normKey(uName);
+      if (!unitAll && uNorm !== uKey) continue;
+      for (const ch of (u.chapters||[])) {
+        const cName = (ch?.name || ch?.id || "").toString();
+        const cNorm = __normKey(cName);
+        if (!chapAll && cNorm !== cKey) continue;
+        for (const v of (ch.vocab||[])) {
+          const ar = (v.ar || v.arabic || v.word || "").toString().trim();
+          const en = (v.en || v.english || v.translation || v.gloss || "").toString().trim();
+          if (ar) out.push({ ar, en });
+        }
+      }
+    }
+  }
+  return out;
+}
   const semesters = getSemestersList(obj);
   const out = [];
   for (const sem of (semesters||[])) {
@@ -118,7 +143,7 @@ function makeSimpleSentences(lex, { size=5, direction="ar2en" }={}){
   return items;
 }
 
-async function postJSON(url, body, headers={}){
+async async function postJSON(url, body, headers={}){
   if (typeof fetch === "function") {
     const r = await fetch(url, { method: "POST", headers, body: JSON.stringify(body) });
     const text = await r.text();
@@ -159,3 +184,18 @@ module.exports = {
   normalizeGlossaryForUI,
   getSemestersList
 };
+
+
+// Robust matching for unit/chapter + 'All' wildcard
+function __normKey(s){
+  return String(s || "")
+    .toLowerCase()
+    .normalize('NFKC')
+    .replace(/[‐‑‒–—―]+/g, '-')   // unify dashes
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+module.exports.normalizeGlossaryForUI = normalizeGlossaryForUI;
+
+module.exports.getSemestersList = getSemestersList;

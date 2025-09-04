@@ -4,7 +4,7 @@ function json(data, status=200){ return new Response(JSON.stringify(data), { sta
 
 async function loadSemester(req) {
   const { origin } = new URL(req.url);
-  const urls = ["/semester1.json", "/data/semester1.json"].map(p => new URL(p, origin).href);
+  const urls = ["/api/glossary", "/data/api/glossary"].map(p => new URL(p, origin).href);
   for (const url of urls) {
     try {
       const res = await fetch(url, { cache: "force-cache" });

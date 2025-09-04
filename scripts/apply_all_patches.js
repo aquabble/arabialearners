@@ -23,7 +23,7 @@ function normalizeToken(ar=''){ return lightStem(ar); }
 const LS_KEY = 'word_stats_v2';
 export async function loadVocabMap(){
   try{
-    const res = await fetch('/semester1.json', { cache: 'force-cache' });
+    const res = await fetch('/api/glossary', { cache: 'force-cache' });
     if(!res.ok) throw new Error('semester1.json missing');
     const data = await res.json();
     const map = new Map();

@@ -2,10 +2,10 @@
 export const config = { runtime: "nodejs" };
 import { createRequire } from 'module';
 const require = createRequire(import.meta.url);
-// Ensure Glossary.json is bundled inside the Serverless function package:
+// Ensure Glossary.json is bundled in the function package
 try { require("./Glossary.json"); } catch {}
-const { loadGlossary } = require("./_lib.cjs");
 
+const { loadGlossary } = require("./_lib.cjs");
 export default function handler(req, res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
   try {
