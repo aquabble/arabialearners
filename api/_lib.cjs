@@ -1,7 +1,48 @@
-
 const fs = require("fs");
 const path = require("path");
 const https = require("https");
+
+function exists(p) {
+  try { fs.statSync(p); return true; } catch { return false; }
+}
+
+function readJSON(abs) {
+  try { return JSON.parse(fs.readFileSync(abs, "utf8")); }
+  catch (e) { return null; }
+}
+
+function findFirstExisting(relPaths) {
+  const tried = new Set();
+  const bases = [
+    process.cwd(),
+    path.resolve(__dirname),
+    path.resolve(__dirname, "..")
+  ];
+  for (const rel of relPaths) {
+    for (const base of bases) {
+      const abs = path.resolve(base, rel);
+      if (tried.has(abs)) continue;
+      tried.add(abs);
+      if (exists(abs)) return abs;
+    }
+  }
+  return null;
+}
+
+function loadGlossary() {
+  const candidates = [
+    "public/Glossary.json",
+    "src/lib/Glossary.json",
+    "api/Glossary.json",
+    "../public/Glossary.json",
+    "../src/lib/Glossary.json",
+    "Glossary.json"
+  ];
+  const abs = findFirstExisting(candidates);
+  if (!abs) return { data: null, source: null };
+  const data = readJSON(abs);
+  return { data, source: abs };
+}
 
 function getSemestersList(data){
   if (!data) return [];
@@ -31,180 +72,90 @@ function normalizeGlossaryForUI(data){
   };
 }
 
-
-function exists(p) { try { return fs.existsSync(p); } catch { return false; } }
-
-function readJSONIfExists(abs) {
-  if (!exists(abs)) return null;
-  try { return JSON.parse(fs.readFileSync(abs, "utf8")); }
-  catch (e) { console.error("JSON parse error for", abs, e); return null; }
-}
-
-
-function findFirstExisting(relPaths) {
-  const tried = new Set();
-  const bases = [
-    process.cwd(),
-    path.resolve(__dirname),
-    path.resolve(__dirname, "..")
-  ];
-  for (const rel of relPaths) {
-    for (const base of bases) {
-      const abs = path.resolve(base, rel);
-      if (tried.has(abs)) continue;
-      tried.add(abs);
-      if (exists(abs)) return abs;
-    }
-  }
-  return null;
-}
-  return null;
-}
-
-// Try common locations for glossary/semester data.
-function loadGlossary() {
-  const candidates = [
-  "public/Glossary.json",
-  "src/lib/Glossary.json",
-  "api/Glossary.json",
-  "../public/Glossary.json",
-  "../src/lib/Glossary.json",
-  "Glossary.json"
-];
-  const abs = findFirstExisting(candidates);
-  if (!abs) return { data: null, source: null };
-  const data = readJSONIfExists(abs);
-  return { data, source: abs };
-}
-
-// Try to collect vocab entries as [{ar, en}, ...] within a subtree if provided
-function collectVocabAnywhere(node, out) {
-  if (!node) return;
-  if (Array.isArray(node)) {
-    for (const item of node) collectVocabAnywhere(item, out);
-    return;
-  }
-  if (typeof node === "object") {
-    const keys = Object.keys(node);
-    const kAr = keys.find(k => /^ar(abic)?$/i.test(k));
-    const kEn = keys.find(k => /^en(glish)?$/i.test(k));
-    if (kAr && kEn && typeof node[kAr] === "string" && typeof node[kEn] === "string") {
-      out.push({ ar: node[kAr], en: node[kEn] });
-    }
-    for (const k of ["vocab", "lexicon", "words", "entries", "items"]) {
-      if (Array.isArray(node[k])) collectVocabAnywhere(node[k], out);
-    }
-    for (const k of keys) {
-      const v = node[k];
-      if (v && typeof v === "object") collectVocabAnywhere(v, out);
-    }
-  }
-}
-
-// Find a unit by id/name (loose match), chapter by id/name, then collect vocab
-function extractLexicon(obj, unitWanted, chapterWanted) {
-  const all = [];
-  if (!obj) return all;
-
-  let subtree = obj;
-  function looseEq(a, b) {
-    if (!a || !b) return false;
-    return String(a).toLowerCase() === String(b).toLowerCase();
-  }
-
+function extractLexicon(obj, unitName="", chapterName=""){
   const semesters = getSemestersList(obj);
-  if (Array.isArray(semesters) && unitWanted) {
-    for (const sem of semesters) {
-      for (const u of (sem.units || [])) {
-        if (looseEq(u.id, unitWanted) || looseEq(u.name, unitWanted)) {
-          subtree = u;
-          if (chapterWanted) {
-            for (const c of (u.chapters || [])) {
-              if (looseEq(c.id, chapterWanted) || looseEq(c.name, chapterWanted)) {
-                subtree = c;
-                break;
-              }
-            }
-          }
-          break;
+  const out = [];
+  for (const sem of (semesters||[])) {
+    for (const u of (sem.units||[])) {
+      const uName = (u?.name || u?.id || "").toString();
+      if (unitName && uName !== unitName) continue;
+      for (const ch of (u.chapters||[])) {
+        const cName = (ch?.name || ch?.id || "").toString();
+        if (chapterName && cName !== chapterName) continue;
+        for (const v of (ch.vocab||[])) {
+          const ar = (v.ar || v.arabic || v.word || "").toString().trim();
+          const en = (v.en || v.english || v.translation || v.gloss || "").toString().trim();
+          if (ar) out.push({ ar, en });
         }
       }
     }
   }
-
-  collectVocabAnywhere(subtree, all);
-  if (all.length) return all;
-  collectVocabAnywhere(obj, all);
-  return all;
+  return out;
 }
 
-// Simple local fallback
-function makeSimpleSentences(lex, opts = {}) {
-  const { size = 5, direction = "ar2en" } = opts;
-  const items = [];
-  const pool = lex && lex.length ? lex : [
-    { ar: "أنا أحب القهوة", en: "I like coffee" },
-    { ar: "هو يدرس العربية", en: "He studies Arabic" },
-    { ar: "أين المكتبة؟", en: "Where is the library?" },
-    { ar: "الطقس جميل اليوم", en: "The weather is nice today" },
-    { ar: "نذهب إلى الشاطئ", en: "We go to the beach" }
-  ];
+function pick(arr, n){
+  const a = Array.from(arr);
+  const out = [];
+  while (a.length && out.length < n) {
+    out.push(a.splice(Math.floor(Math.random()*a.length),1)[0]);
+  }
+  return out;
+}
 
-  for (let i = 0; i < size; i++) {
-    const pair = pool[i % pool.length];
-    const item = direction === "en2ar"
-      ? { prompt: pair.en, answer: pair.ar, ar: pair.ar, en: pair.en }
-      : { prompt: pair.ar, answer: pair.en, ar: pair.ar, en: pair.en };
-    items.push(item);
+function makeSimpleSentences(lex, { size=5, direction="ar2en" }={}){
+  const chosen = pick(lex||[], Math.max(1, Math.min(Number(size)||5, 50)));
+  const items = [];
+  for (const it of chosen) {
+    const ar = String(it.ar||"").trim();
+    const en = String(it.en||"").trim();
+    if (!ar && !en) continue;
+    if (direction === "en2ar") {
+      items.push({ prompt: en || ar, answer: ar || en, ar, en });
+    } else {
+      items.push({ prompt: ar || en, answer: en || ar, ar, en });
+    }
   }
   return items;
 }
 
-// Lightweight POST helper with HTTPS fallback if fetch is missing
-async function postJSON(url, body, headers = {}) {
+async function postJSON(url, body, headers={}){
   if (typeof fetch === "function") {
-    const r = await fetch(url, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", ...headers },
-      body: JSON.stringify(body)
-    });
+    const r = await fetch(url, { method: "POST", headers, body: JSON.stringify(body) });
     const text = await r.text();
-    return { status: r.status, ok: r.ok, text, json: safeJSON(text) };
+    let json = null; try { json = JSON.parse(text); } catch {}
+    return { ok: r.ok, status: r.status, json, text };
   }
-  // HTTPS fallback (Node < 18)
-  const { URL } = require("url");
-  const u = new URL(url);
-  const payload = JSON.stringify(body);
-  const opts = {
-    method: "POST",
-    hostname: u.hostname,
-    path: u.pathname + (u.search || ""),
-    port: u.port || 443,
-    headers: { "Content-Type": "application/json", "Content-Length": Buffer.byteLength(payload), ...headers }
-  };
-  return await new Promise((resolve, reject) => {
-    const req = https.request(opts, (res) => {
-      let data = "";
-      res.on("data", (d) => (data += d));
-      res.on("end", () => resolve({ status: res.statusCode, ok: (res.statusCode >= 200 && res.statusCode < 300), text: data, json: safeJSON(data) }));
-    });
-    req.on("error", reject);
-    req.write(payload);
-    req.end();
+  // Node without fetch fallback
+  return new Promise((resolve, reject) => {
+    try {
+      const u = new URL(url);
+      const data = Buffer.from(JSON.stringify(body));
+      const req = https.request({
+        method: "POST",
+        hostname: u.hostname,
+        path: u.pathname + (u.search || ""),
+        port: u.port || 443,
+        headers: { "Content-Type":"application/json", "Content-Length": data.length, ...headers }
+      }, (res) => {
+        let buf = "";
+        res.on("data", (d) => buf += d);
+        res.on("end", () => {
+          let json = null; try { json = JSON.parse(buf); } catch {}
+          resolve({ ok: res.statusCode>=200 && res.statusCode<300, status: res.statusCode, json, text: buf });
+        });
+      });
+      req.on("error", reject);
+      req.write(data);
+      req.end();
+    } catch (e) { reject(e); }
   });
-}
-
-function safeJSON(text) {
-  try { return JSON.parse(text); } catch { return null; }
 }
 
 module.exports = {
   loadGlossary,
   extractLexicon,
   makeSimpleSentences,
-  postJSON
+  postJSON,
+  normalizeGlossaryForUI,
+  getSemestersList
 };
-
-module.exports.getSemestersList = typeof getSemestersList === "function" ? getSemestersList : undefined;
-
-module.exports.normalizeGlossaryForUI = normalizeGlossaryForUI;

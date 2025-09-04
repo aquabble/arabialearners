@@ -1,23 +1,13 @@
-
-export const config = { runtime: "nodejs" };
+export const config = { runtime: "nodejs22.x" };
 import { createRequire } from 'module';
 const require = createRequire(import.meta.url);
 const { loadGlossary } = require("./_lib.cjs");
 
-function send(res, code, obj) {
-  try {
-    res.statusCode = code;
-    res.setHeader("Content-Type", "application/json");
-    res.setHeader("Access-Control-Allow-Origin", "*");
-    res.end(JSON.stringify(obj));
-  } catch (e) {}
-}
-
 export default function handler(req, res) {
+  res.setHeader("Access-Control-Allow-Origin", "*");
   try {
-    if (req.method === "OPTIONS") return send(res, 200, { ok: true });
     const { data, source } = loadGlossary();
-    return send(res, 200, {
+    res.status(200).json({
       ok: true,
       runtime: "node",
       nodeVersion: process.version,
@@ -29,6 +19,6 @@ export default function handler(req, res) {
       hasGlossary: !!data
     });
   } catch (e) {
-    return send(res, 500, { ok:false, error: String(e?.message||e) });
+    res.status(500).json({ ok:false, error: String(e?.message||e) });
   }
 }
