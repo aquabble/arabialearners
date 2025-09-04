@@ -1,4 +1,7 @@
-// Shared helpers (Pages Router)
+
+// File: src/lib/glossary-server.js
+// Shared helpers for both Pages and App Router APIs.
+
 import fs from "fs";
 import path from "path";
 
@@ -13,10 +16,14 @@ export function tryJson(p) {
   return null;
 }
 
-export function findGlossary() {
+export function findGlossary(debug=false) {
   const tried = [];
   const env = process.env.GLOSSARY_FILE;
-  if (env) { tried.push(env); const j = tryJson(env); if (j) return { data: j, path: env, tried }; }
+  if (env) {
+    tried.push(env);
+    const j = tryJson(env);
+    if (j) return { data: j, path: env, tried };
+  }
 
   const candidates = [
     "src/lib/Glossary.json",
@@ -26,8 +33,45 @@ export function findGlossary() {
     "Glossary.json",
     "glossary.json"
   ];
-  for (const p of candidates) { tried.push(p); const j = tryJson(p); if (j) return { data: j, path: p, tried }; }
+
+  for (const p of candidates) {
+    tried.push(p);
+    const j = tryJson(p);
+    if (j) return { data: j, path: p, tried };
+  }
+
+  // Case-insensitive scan in src/lib and data
+  for (const dir of ["src/lib", "data", "."]) {
+    try {
+      const absDir = path.join(process.cwd(), dir);
+      if (!fs.existsSync(absDir)) continue;
+      for (const name of fs.readdirSync(absDir)) {
+        if (name.toLowerCase() === "glossary.json") {
+          const fp = path.join(dir, name);
+          tried.push(fp);
+          const j = tryJson(fp);
+          if (j) return { data: j, path: fp, tried };
+        }
+      }
+    } catch {}
+  }
+
   return { data: null, path: null, tried };
+}
+
+function collectStringsFromAny(x, out) {
+  if (!x) return;
+  if (typeof x === "string") { out.push(x); return; }
+  if (Array.isArray(x)) { for (const y of x) collectStringsFromAny(y, out); return; }
+  if (typeof x === "object") {
+    if (typeof x.ar === "string") out.push(x.ar);
+    if (typeof x.en === "string") out.push(x.en);
+    for (const k of Object.keys(x)) {
+      const v = x[k];
+      if (typeof v === "string") out.push(v);
+      else if (Array.isArray(v)) collectStringsFromAny(v, out);
+    }
+  }
 }
 
 export function normalizeGlossaryForUI(data) {
@@ -53,6 +97,18 @@ export function normalizeGlossaryForUI(data) {
       chapters: (u.chapters||[]).map(c => ({ id: c.id, name: c.name }))
     }))
   }));
+  // fallback guess
+  for (const sec of sections) {
+    if (Array.isArray(sec?.items)) {
+      return sec.items.map(s => ({
+        id: s.id, name: s.name,
+        units: (s.units||[]).map(u => ({
+          id: u.id, name: u.name,
+          chapters: (u.chapters||[]).map(c => ({ id: c.id, name: c.name }))
+        }))
+      }));
+    }
+  }
   return [];
 }
 
@@ -62,36 +118,34 @@ function endsDigits(a, b) {
   return !!da && da === db;
 }
 
-function collectStringsFromAny(x, out) {
-  if (!x) return;
-  if (typeof x === "string") { out.push(x); return; }
-  if (Array.isArray(x)) { for (const y of x) collectStringsFromAny(y, out); return; }
-  if (typeof x === "object") {
-    if (typeof x.ar === "string") out.push(x.ar);
-    if (typeof x.en === "string") out.push(x.en);
-    for (const k of Object.keys(x)) {
-      const v = x[k];
-      if (typeof v === "string") out.push(v);
-      else if (Array.isArray(v)) collectStringsFromAny(v, out);
-    }
-  }
-}
-
 export function extractLexiconFromGlossary(data, semester, unit, chapter) {
   const sections = Array.isArray(data) ? data : [data];
   let semesters = null;
-  for (const sec of sections) if ((sec?.type||"").toLowerCase() === "semesters") { semesters = sec.items; break; }
+  for (const sec of sections) {
+    if ((sec?.type||"").toLowerCase() === "semesters") { semesters = sec.items; break; }
+  }
   if (!Array.isArray(semesters)) return [];
 
-  const sem = semesters.find(s => norm(s.id)===norm(semester) || norm(s.name)===norm(semester) || endsDigits(s.id, semester) || endsDigits(s.name, semester)) || semesters[0];
+  // Find semester (by id/name or matching digits)
+  let sem = semesters.find(s => norm(s.id) === norm(semester) || norm(s.name) === norm(semester) || endsDigits(s.id, semester) || endsDigits(s.name, semester)) || semesters[0];
   if (!sem) return [];
+
+  // Find unit
   const units = sem.units || [];
-  const u = units.find(x => norm(x.id)===norm(unit) || norm(x.name)===norm(unit) || endsDigits(x.id, unit) || endsDigits(x.name, unit)) || units[0];
+  const u = units.find(x => norm(x.id) === norm(unit) || norm(x.name) === norm(unit) || endsDigits(x.id, unit) || endsDigits(x.name, unit)) || units[0];
   if (!u) return [];
+
+  // Prefer chapter vocab; else aggregate unit chapter vocab
   const chapters = u.chapters || [];
-  const ch = chapters.find(c => norm(c.id)===norm(chapter) || norm(c.name)===norm(chapter) || endsDigits(c.id, chapter) || endsDigits(c.name, chapter));
+  const ch = chapters.find(c => norm(c.id) === norm(chapter) || norm(c.name) === norm(chapter) || endsDigits(c.id, chapter) || endsDigits(c.name, chapter));
+
   const out = [];
   if (ch && ch.vocab) collectStringsFromAny(ch.vocab, out);
-  if (!out.length) for (const c of chapters) collectStringsFromAny(c.vocab, out);
-  return Array.from(new Set(out));
+  if (!out.length) {
+    for (const c of chapters) collectStringsFromAny(c.vocab, out);
+  }
+  // de-dup
+  const seen = new Set(); const uniq = [];
+  for (const w of out) if (!seen.has(w)) { seen.add(w); uniq.push(w); }
+  return uniq;
 }
