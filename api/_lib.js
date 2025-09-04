@@ -1,6 +1,7 @@
 
 const fs = require("fs");
 const path = require("path");
+const https = require("https");
 
 function exists(p) { try { return fs.existsSync(p); } catch { return false; } }
 
@@ -116,8 +117,47 @@ function makeSimpleSentences(lex, opts = {}) {
   return items;
 }
 
+// Lightweight POST helper with HTTPS fallback if fetch is missing
+async function postJSON(url, body, headers = {}) {
+  if (typeof fetch === "function") {
+    const r = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...headers },
+      body: JSON.stringify(body)
+    });
+    const text = await r.text();
+    return { status: r.status, ok: r.ok, text, json: safeJSON(text) };
+  }
+  // HTTPS fallback (Node < 18)
+  const { URL } = require("url");
+  const u = new URL(url);
+  const payload = JSON.stringify(body);
+  const opts = {
+    method: "POST",
+    hostname: u.hostname,
+    path: u.pathname + (u.search || ""),
+    port: u.port || 443,
+    headers: { "Content-Type": "application/json", "Content-Length": Buffer.byteLength(payload), ...headers }
+  };
+  return await new Promise((resolve, reject) => {
+    const req = https.request(opts, (res) => {
+      let data = "";
+      res.on("data", (d) => (data += d));
+      res.on("end", () => resolve({ status: res.statusCode, ok: (res.statusCode >= 200 && res.statusCode < 300), text: data, json: safeJSON(data) }));
+    });
+    req.on("error", reject);
+    req.write(payload);
+    req.end();
+  });
+}
+
+function safeJSON(text) {
+  try { return JSON.parse(text); } catch { return null; }
+}
+
 module.exports = {
   loadGlossary,
   extractLexicon,
-  makeSimpleSentences
+  makeSimpleSentences,
+  postJSON
 };
