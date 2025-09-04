@@ -1,4 +1,4 @@
-export const config = { runtime: "nodejs22.x" };
+export const config = { runtime: "nodejs" };
 import { createRequire } from 'module';
 const require = createRequire(import.meta.url);
 const { loadGlossary, extractLexicon, makeSimpleSentences, postJSON } = require("./_lib.cjs");
