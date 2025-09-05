@@ -1,49 +1,29 @@
-// src/App.jsx
-import { useEffect, useState } from 'react'
-import Header from './components/ui/Header.jsx'
-import Home from './components/Home.jsx'
-import TranslateGame from './components/TranslateGame.jsx'
-import WordOrderGame from './components/WordOrderGame.jsx'
-import Words from './components/Words.jsx'
-import SignIn from './components/SignIn.jsx'
-import { onAuthChanged, signOutUser } from './lib/auth.js'
+import React, { useState } from "react";
+import TranslateGame from "./components/TranslateGame.jsx";
 
-export default function App(){
-  const [mode, setMode] = useState('home')
-  const [authUser, setAuthUser] = useState(null)
-
-  // Keep authUser in sync with Firebase
-  useEffect(() => {
-    const unsub = onAuthChanged(setAuthUser)
-    return () => unsub && unsub()
-  }, [])
+export default function App() {
+  const [tab, setTab] = useState("game");
 
   return (
-    <div className="app-root">
-      <Header
-        onNav={setMode}
-        user={authUser}
-        onSignIn={() => setMode('signin')}
-        onSignOut={async () => {
-          await signOutUser()
-          setMode('home')
-        }}
-        items={[
-          { value: 'home',       label: 'Home' },
-          { value: 'translate',  label: 'Translate' },
-          { value: 'words',      label: 'Words' },
-          { value: 'word-order', label: 'Word Order' }
-        ]}
-        current={mode}
-      />
+    <div className="min-h-screen bg-white text-black">
+      <header className="sticky top-0 z-10 bg-white/90 backdrop-blur border-b">
+        <div className="max-w-5xl mx-auto px-4 py-3 flex items-center justify-between">
+          <div className="text-xl font-semibold">Arabia Learners</div>
+          <nav className="flex gap-2">
+            <button
+              className={"px-3 py-1.5 rounded " + (tab==="game" ? "bg-black text-white" : "border")}
+              onClick={() => setTab("game")}
+            >
+              Sentence Game
+            </button>
+            <a className="px-3 py-1.5 rounded border" href="/api/diag" target="_blank" rel="noreferrer">API Diag</a>
+          </nav>
+        </div>
+      </header>
 
-      <main className="container" style={{ paddingTop: 16 }}>
-        {mode === 'home' && <Home onNav={setMode} user={authUser} />}
-        {mode === 'translate' && <TranslateGame user={authUser} />}
-        {mode === 'word-order' && <WordOrderGame user={authUser} />}
-        {mode === 'words' && <Words user={authUser} />}
-        {mode === 'signin' && <SignIn onDone={() => setMode('home')} />}
+      <main className="max-w-5xl mx-auto px-4 py-6">
+        {tab === "game" && <TranslateGame />}
       </main>
     </div>
-  )
+  );
 }

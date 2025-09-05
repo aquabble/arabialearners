@@ -1,8 +1,9 @@
-import './styles/ui.css'
-import './styles/responsive.css'
-import './styles/responsive.additions.css'
-import './styles/logo-dropdown.sleek.css'
-import React from 'react'
-import { createRoot } from 'react-dom/client'
-import App from './App'
-createRoot(document.getElementById('root')).render(<App />)
+import React from "react";
+import ReactDOM from "react-dom/client";
+import App from "./App.jsx";
+
+ReactDOM.createRoot(document.getElementById("root")).render(
+  <React.StrictMode>
+    <App />
+  </React.StrictMode>
+);

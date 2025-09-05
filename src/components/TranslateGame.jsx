@@ -2,20 +2,22 @@ import React, { useEffect, useMemo, useState } from "react";
 
 export default function TranslateGame() {
   const [units, setUnits] = useState(["All"]);
-  const [chaptersByUnit, setChaptersByUnit] = useState({}); // { [unitName]: ["All", ...] }
+  const [chaptersByUnit, setChaptersByUnit] = useState({});
   const [unit, setUnit] = useState("All");
   const [chapter, setChapter] = useState("All");
   const [direction, setDirection] = useState("ar2en");
-  const [difficulty, setDifficulty] = useState("medium");
-  const [size, setSize] = useState(5);
+  const [difficulty, setDifficulty] = useState("short"); // "short" | "medium" | "hard"
+  const [size, setSize] = useState(6);
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
 
   useEffect(() => {
     (async () => {
       try {
+        setError("");
         const res = await fetch("/api/glossary", { cache: "no-store" });
-        if (!res.ok) throw new Error("glossary failed");
+        if (!res.ok) throw new Error("Failed to load glossary");
         const data = await res.json();
         const sems = Array.isArray(data?.semesters) ? data.semesters : [];
         const uSet = new Set(["All"]);
@@ -31,7 +33,8 @@ export default function TranslateGame() {
         }
         setUnits(Array.from(uSet));
         setChaptersByUnit(byUnit);
-      } catch {
+      } catch (e) {
+        setError(String(e?.message || e));
         setUnits(["All"]);
         setChaptersByUnit({});
       }
@@ -43,11 +46,12 @@ export default function TranslateGame() {
   async function generate() {
     setLoading(true);
     setItems([]);
+    setError("");
     try {
       const body = {
         unit: unit === "All" ? "" : unit,
         chapter: chapter === "All" ? "" : chapter,
-        size: Number(size) || 5,
+        size: Number(size) || 6,
         direction,
         difficulty
       };
@@ -56,9 +60,11 @@ export default function TranslateGame() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body)
       });
+      if (!res.ok) throw new Error("Generation failed");
       const data = await res.json();
       setItems(Array.isArray(data?.items) ? data.items : []);
-    } catch {
+    } catch (e) {
+      setError(String(e?.message || e));
       setItems([]);
     } finally {
       setLoading(false);
@@ -66,9 +72,7 @@ export default function TranslateGame() {
   }
 
   return (
-    <div className="p-4 max-w-3xl mx-auto space-y-4">
-      <h1 className="text-2xl font-semibold">Sentence Generator</h1>
-
+    <div className="space-y-4">
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <label className="block">
           <div className="text-sm opacity-70 mb-1">Unit</div>
@@ -95,22 +99,25 @@ export default function TranslateGame() {
         <label className="block">
           <div className="text-sm opacity-70 mb-1">Difficulty</div>
           <select className="w-full border rounded p-2" value={difficulty} onChange={e => setDifficulty(e.target.value)}>
-            <option value="easy">Easy</option>
-            <option value="medium">Medium</option>
-            <option value="hard">Hard</option>
+            <option value="short">Short (4–7 words, ≥1 vocab)</option>
+            <option value="medium">Medium (6–8 words, ≥2 vocab)</option>
+            <option value="hard">Hard (8–14 words, complex)</option>
           </select>
         </label>
       </div>
 
-      <div className="flex items-center gap-3">
+      <div className="flex items-end gap-3">
         <label className="block">
           <div className="text-sm opacity-70 mb-1">How many?</div>
           <input className="w-28 border rounded p-2" type="number" min="1" max="20" value={size} onChange={e => setSize(e.target.value)} />
         </label>
+
         <button onClick={generate} className="px-4 py-2 rounded bg-black text-white disabled:opacity-60" disabled={loading}>
           {loading ? "Generating..." : "Generate"}
         </button>
       </div>
+
+      {error && <div className="text-red-600 text-sm">{error}</div>}
 
       <div className="space-y-3">
         {items.map((it, i) => {
@@ -120,11 +127,11 @@ export default function TranslateGame() {
             <div key={i} className="border rounded-xl p-3">
               <div className="text-lg">{prompt}</div>
               <div className="mt-1 text-sm opacity-80">{answer}</div>
-              <div className="mt-1 text-xs opacity-60">{it?.ar}{it?.en ? ` — ${it.en}` : ""}</div>
+              {(it?.ar || it?.en) && <div className="mt-1 text-xs opacity-60">{it?.ar}{it?.en ? ` — ${it.en}` : ""}</div>}
             </div>
           );
         })}
-        {!loading && items.length === 0 && (
+        {!loading && items.length === 0 && !error && (
           <div className="opacity-70">No items yet — click Generate.</div>
         )}
       </div>
