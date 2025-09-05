@@ -1,4 +1,3 @@
-// _lib.cjs — with meaningful sentence templates
 const fs = require("fs");
 const path = require("path");
 const https = require("https");
@@ -116,51 +115,97 @@ function pick(arr, n){
     if (!a.length) break;
     out.push(a.splice(Math.floor(Math.random()*a.length),1)[0]);
   }
-  // If not enough unique items, allow reuse
-  while (out.length < target && arr && arr.length) {
-    out.push(arr[Math.floor(Math.random()*arr.length)]);
+  while (out.length < target && arr && arr.length) out.push(arr[Math.floor(Math.random()*arr.length)]);
+  return out;
+}
+
+// ====== Difficulty-aware template generator (PERSON OPTIONAL) ======
+const NAMES_AR = ["ليلى","عمر","سارة","أحمد","نور","كريم","مريم","يوسف","فاطمة","علي"];
+const NAMES_EN = ["Layla","Omar","Sara","Ahmed","Noor","Karim","Mariam","Youssef","Fatima","Ali"];
+const SUBJECTS_AR = ["أنا","نحن","هو","هي","الطالب","المعلم","العائلة","الصديق"];
+const SUBJECTS_EN = ["I","we","he","she","the student","the teacher","the family","the friend"];
+
+function maybePerson(i){
+  const usePerson = (i % 2) === 0; // ~50%
+  if (usePerson) {
+    return { ar: NAMES_AR[i % NAMES_AR.length], en: NAMES_EN[i % NAMES_EN.length] };
+  }
+  return { ar: SUBJECTS_AR[i % SUBJECTS_AR.length], en: SUBJECTS_EN[i % SUBJECTS_EN.length] };
+}
+
+function wordCount(text) {
+  return String(text || "").trim().split(/\s+/).filter(Boolean).length;
+}
+
+function clampToRange(text, minW, maxW, lang) {
+  let t = String(text || "").trim();
+  let wc = wordCount(t);
+  const fillersAr = ["الآن.", "اليوم.", "من فضلك.", "حقًا.", "قريبًا."];
+  const fillersEn = ["now.", "today.", "please.", "really.", "soon."];
+  const fillers = (lang === "ar") ? fillersAr : fillersEn;
+  while (wc < minW) {
+    t = t.replace(/[.؟!?]*\s*$/, " ") + fillers[(wc) % fillers.length];
+    wc = wordCount(t);
+  }
+  if (wc > maxW) {
+    const parts = t.split(/\s+/).slice(0, maxW);
+    if (!/[.؟!?]$/.test(parts[parts.length-1])) parts[parts.length-1] += (lang === "ar" ? "." : ".");
+    t = parts.join(" ");
+  }
+  return t;
+}
+
+function ensureLex(lex, needed){
+  const L = Array.isArray(lex) ? lex.slice() : [];
+  if (L.length >= needed) return pick(L, needed);
+  const out = L.slice();
+  while (out.length < needed && L.length) out.push(L[Math.floor(Math.random()*L.length)]);
+  while (out.length < needed) out.push({ ar:"شيء", en:"something" });
+  return out;
+}
+
+function buildShort(i, lex) {
+  // 4–7 words, ≥1 vocab
+  const subj = maybePerson(i);
+  const [w1] = ensureLex(lex, 1);
+  const ar = clampToRange(`${subj.ar} يستخدم ${w1.ar} اليوم.`, 4, 7, "ar");
+  const en = clampToRange(`${subj.en} uses the ${w1.en} today.`, 4, 7, "en");
+  return { promptAr: ar, promptEn: en, used: [w1] };
+}
+
+function buildMedium(i, lex) {
+  // 6–8 words, ≥2 vocab
+  const subj = maybePerson(i);
+  const [w1, w2] = ensureLex(lex, 2);
+  const ar = clampToRange(`${subj.ar} يحمل ${w1.ar} ثم يشتري ${w2.ar} الآن.`, 6, 8, "ar");
+  const en = clampToRange(`${subj.en} carries the ${w1.en} then buys the ${w2.en} now.`, 6, 8, "en");
+  return { promptAr: ar, promptEn: en, used: [w1, w2] };
+}
+
+function buildHard(i, lex) {
+  // 8–14 words, complex, ≥2 vocab
+  const subj = maybePerson(i);
+  const [w1, w2] = ensureLex(lex, 2);
+  const ar = clampToRange(`عندما وصل ${subj.ar} متأخرًا، وضع ${w1.ar} قرب ${w2.ar} لأنه كان مشغولًا جدًا.`, 8, 14, "ar");
+  const en = clampToRange(`When ${subj.en} arrived late, they placed the ${w1.en} near the ${w2.en} because they were very busy.`, 8, 14, "en");
+  return { promptAr: ar, promptEn: en, used: [w1, w2] };
+}
+
+function makeDifficultySentences(lex, { size=5, direction="ar2en", difficulty="medium" }={}){
+  const out = [];
+  const S = Math.max(1, Math.min(50, Number(size)||5));
+  for (let i=0; i<S; i++){
+    const d = String(difficulty||"").toLowerCase();
+    const pair = (d === "short" || d === "easy") ? buildShort(i, lex) : (d === "hard" ? buildHard(i, lex) : buildMedium(i, lex));
+    const ar = pair.promptAr, en = pair.promptEn;
+    const main = pair.used && pair.used[0] ? pair.used[0] : { ar:"", en:"" };
+    if (direction === "en2ar") out.push({ prompt: en, answer: ar, ar: main.ar, en: main.en });
+    else out.push({ prompt: ar, answer: en, ar: main.ar, en: main.en });
   }
   return out;
 }
 
-// === NEW: template-based meaningful sentences ===
-const TEMPLATES = [
-  { ar: "أنا أرى {ar}.",            en: "I see the {en}." },
-  { ar: "أنا أحب {ar}.",            en: "I like the {en}." },
-  { ar: "أنا أريد {ar}.",           en: "I want the {en}." },
-  { ar: "هذا هو {ar}.",             en: "This is the {en}." },
-  { ar: "لدينا {ar}.",              en: "We have the {en}." },
-  { ar: "هل لديك {ar}؟",            en: "Do you have the {en}?" },
-  { ar: "أين {ar}؟",                en: "Where is the {en}?" },
-  { ar: "أنا أتعلم كلمة: {ar}.",    en: "I am learning the word: {en}." },
-  { ar: "أحتاج إلى {ar}.",          en: "I need the {en}." },
-  { ar: "أنا أبحث عن {ar}.",        en: "I am looking for the {en}." }
-];
-
-function fillTemplate(tpl, ar, en) {
-  return { ar: tpl.ar.replace("{ar}", ar), en: tpl.en.replace("{en}", en) };
-}
-
-function makeTemplateSentences(lex, { size=5, direction="ar2en" }={}){
-  const chosen = pick(lex||[], size);
-  const items = [];
-  for (let i=0; i<chosen.length; i++){
-    const it = chosen[i] || {};
-    const ar = String(it.ar||"").trim();
-    const en = String(it.en||"").trim() || "word";
-    const tpl = TEMPLATES[i % TEMPLATES.length];
-    const s = fillTemplate(tpl, ar, en);
-    if (direction === "en2ar") {
-      items.push({ prompt: s.en, answer: s.ar, ar, en });
-    } else {
-      items.push({ prompt: s.ar, answer: s.en, ar, en });
-    }
-  }
-  return items;
-}
-
-// Backward-compatible name
-function makeSimpleSentences(lex, opts){ return makeTemplateSentences(lex, opts); }
+function makeSimpleSentences(lex, opts){ return makeDifficultySentences(lex, opts); }
 
 async function postJSON(url, body, headers={}){
   if (typeof fetch === "function") {
@@ -190,7 +235,7 @@ module.exports = {
   loadGlossary,
   extractLexicon,
   makeSimpleSentences,
-  makeTemplateSentences,
+  makeDifficultySentences,
   postJSON,
   normalizeGlossaryForUI,
   getSemestersList
