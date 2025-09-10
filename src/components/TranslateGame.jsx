@@ -5,7 +5,6 @@ const ARABIC_REGEX = /[\u0600-\u06FF]/
 const clean = v => (typeof v === 'string' ? v.trim() : '')
 
 async function fetchBundle(API_BASE, payload){
-  // Try POST first (many APIs require POST), then fall back to GET
   const url = `${API_BASE}/api/sentence-bundle`
   try{
     const r = await fetch(url, {
@@ -17,7 +16,8 @@ async function fetchBundle(API_BASE, payload){
     if (!r.ok) throw new Error(`POST failed: ${r.status}`)
     return await r.json()
   }catch(_){
-    const r2 = await fetch(url) // GET
+    const params = new URLSearchParams(Object.entries(payload || {})).toString()
+    const r2 = await fetch(params ? `${url}?${params}` : url) // GET fallback
     if (!r2.ok) throw new Error(`GET failed: ${r2.status}`)
     return await r2.json()
   }
@@ -70,7 +70,14 @@ function pickDisplayAndPair(item, direction){
   }
 }
 
-export default function TranslateGame({ API_BASE = '' , direction = 'ar2en', difficulty = 'medium' }){
+export default function TranslateGame({
+  API_BASE = '' ,
+  direction = 'ar2en',
+  difficulty = 'medium',
+  semesterId = 'S1',
+  unitId = 'unit_1',
+  chapterId = 'chapter_1'
+}){
   const [loading, setLoading] = useState(false)
   const [err, setErr] = useState(null)
   const [guess, setGuess] = useState('')
@@ -90,9 +97,11 @@ export default function TranslateGame({ API_BASE = '' , direction = 'ar2en', dif
   async function loadQueue(key='default'){
     let q = queuesRef.current.get(key) || []
     if (q.length > 0) return q
-    const data = await fetchBundle(API_BASE, { direction, difficulty, count: 12 })
+    const data = await fetchBundle(API_BASE, {
+      direction, difficulty, count: 12, semesterId, unitId, chapterId
+    })
     const items = Array.isArray(data?.items) ? data.items.slice() : []
-    setDiagnostic({ count: items.length, method: data?.method || 'unknown' })
+    setDiagnostic({ count: items.length, method: data?.method || 'unknown', source: data?.source || 'unknown' })
     queuesRef.current.set(key, items)
     return items
   }
@@ -150,7 +159,7 @@ export default function TranslateGame({ API_BASE = '' , direction = 'ar2en', dif
     }
   }
 
-  useEffect(()=>{ showNext() }, [direction, difficulty])
+  useEffect(()=>{ showNext() }, [direction, difficulty, semesterId, unitId, chapterId])
 
   return (
     <div className="translate-game">
@@ -186,6 +195,7 @@ export default function TranslateGame({ API_BASE = '' , direction = 'ar2en', dif
               <div><strong>Arabic vocab:</strong> {vocabAr || '—'}</div>
               <div><strong>English gloss:</strong> {vocabEn || '—'}</div>
               {diagnostic?.method && <div><strong>API method:</strong> {diagnostic.method}</div>}
+              {diagnostic?.source && <div><strong>API source:</strong> {diagnostic.source}</div>}
             </div>
           </details>
 
