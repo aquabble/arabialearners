@@ -1,31 +1,3441 @@
-{
-  "type": "Semesters",
-  "items": [
-    {
-      "id": "S1",
-      "name": "Semester 1",
-      "units": [
-        {
-          "id": "U1",
-          "name": "Unit 1",
-          "chapters": [
-            {
-              "id": "C1",
-              "name": "Chapter 1",
-              "vocab": [
-                {
-                  "ar": "مرحبا",
-                  "en": "hello"
-                },
-                {
-                  "ar": "شكرا",
-                  "en": "thank you"
-                }
-              ]
-            }
-          ]
-        }
-      ]
-    }
-  ]
-}
+[
+  {
+    "type": "Glossary",
+    "generatedFrom": "Semesters",
+    "semesters": [
+      {
+        "id": "S1",
+        "name": "Semester 1",
+        "units": [
+          {
+            "id": "sound_script",
+            "name": "Sound & Script",
+            "chapters": [
+              {
+                "id": "ss_l1",
+                "name": "Sound & Script – Lesson 1"
+              },
+              {
+                "id": "ss_l2",
+                "name": "Sound & Script – Lesson 2"
+              },
+              {
+                "id": "ss_l3",
+                "name": "Sound & Script – Lesson 3"
+              },
+              {
+                "id": "ss_l4",
+                "name": "Sound & Script – Lesson 4"
+              },
+              {
+                "id": "ss_l5",
+                "name": "Sound & Script – Lesson 5"
+              },
+              {
+                "id": "ss_l6",
+                "name": "Sound & Script – Lesson 6 (Colors & 0–10)"
+              },
+              {
+                "id": "ss_l7",
+                "name": "Sound & Script – Lesson 7 (11–100, Days)"
+              },
+              {
+                "id": "ss_l8",
+                "name": "Sound & Script – Lesson 8 (Time & Weather)"
+              },
+              {
+                "id": "ss_l9",
+                "name": "Sound & Script – Lesson 9 (Food & Basics)"
+              }
+            ]
+          },
+          {
+            "id": "unit_1",
+            "name": "Unit 1",
+            "chapters": [
+              {
+                "id": "u1_c1",
+                "name": "Unit 1 – Greetings, Introductions, Bio-Data"
+              },
+              {
+                "id": "u1_c2",
+                "name": "Unit 1 – Locations, Terrain, Weather"
+              },
+              {
+                "id": "u1_c3",
+                "name": "Unit 1 – Your Immediate Environment"
+              },
+              {
+                "id": "u1_c4",
+                "name": "Unit 1 – The Family Home"
+              },
+              {
+                "id": "u1_c5",
+                "name": "Unit 1 – Military Life"
+              }
+            ]
+          },
+          {
+            "id": "unit_2",
+            "name": "Unit 2",
+            "chapters": [
+              {
+                "id": "u2_c6",
+                "name": "Chapter 6 – What I Used to Have and Do"
+              },
+              {
+                "id": "u2_c7",
+                "name": "Chapter 7 – Education and Jobs"
+              },
+              {
+                "id": "u2_c8",
+                "name": "Chapter 8 – My Life at DLI"
+              },
+              {
+                "id": "u2_c9",
+                "name": "Chapter 9 – Leisure Time"
+              },
+              {
+                "id": "u2_c10",
+                "name": "Chapter 10 – Weekend Activities"
+              }
+            ]
+          },
+          {
+            "id": "unit_3",
+            "name": "Unit 3",
+            "chapters": [
+              {
+                "id": "u3_c11",
+                "name": "Chapter 11 – A Typical Day at the DLI"
+              },
+              {
+                "id": "u3_c12",
+                "name": "Chapter 12 – Monterey and Surroundings"
+              },
+              {
+                "id": "u3_c13",
+                "name": "Chapter 13 – California & the United States"
+              },
+              {
+                "id": "u3_c14",
+                "name": "Chapter 14 – Arab-Americans"
+              },
+              {
+                "id": "u3_c15",
+                "name": "Chapter 15 – Arab-Americans II"
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "type": "Semesters",
+    "items": [
+      {
+        "id": "S1",
+        "name": "Semester 1",
+        "units": [
+          {
+            "id": "sound_script",
+            "name": "Sound & Script",
+            "chapters": [
+              {
+                "id": "ss_l1",
+                "name": "Sound & Script – Lesson 1",
+                "vocab": [
+                  {
+                    "ar": "توت",
+                    "en": "berries"
+                  },
+                  {
+                    "ar": "تين",
+                    "en": "fig"
+                  },
+                  {
+                    "ar": "مال",
+                    "en": "money"
+                  },
+                  {
+                    "ar": "مايو",
+                    "en": "May"
+                  },
+                  {
+                    "ar": "مليون",
+                    "en": "million"
+                  },
+                  {
+                    "ar": "مونتانا",
+                    "en": "Montana (state)"
+                  },
+                  {
+                    "ar": "موتيل",
+                    "en": "motel"
+                  },
+                  {
+                    "ar": "ميلانو",
+                    "en": "Milan (city)"
+                  },
+                  {
+                    "ar": "ناتو",
+                    "en": "NATO"
+                  },
+                  {
+                    "ar": "نام/نامت",
+                    "en": "he slept / she slept"
+                  },
+                  {
+                    "ar": "يوليو",
+                    "en": "July"
+                  },
+                  {
+                    "ar": "يونيو",
+                    "en": "June"
+                  }
+                ]
+              },
+              {
+                "id": "ss_l2",
+                "name": "Sound & Script – Lesson 2",
+                "vocab": [
+                  {
+                    "ar": "أنا",
+                    "en": "I"
+                  },
+                  {
+                    "ar": "أبي",
+                    "en": "my father"
+                  },
+                  {
+                    "ar": "ألعب",
+                    "en": "I play"
+                  },
+                  {
+                    "ar": "أمي",
+                    "en": "my mother"
+                  },
+                  {
+                    "ar": "أنتَ",
+                    "en": "you (masc.)"
+                  },
+                  {
+                    "ar": "أنتِ",
+                    "en": "you (fem.)"
+                  },
+                  {
+                    "ar": "باب",
+                    "en": "door"
+                  },
+                  {
+                    "ar": "بريد",
+                    "en": "mail"
+                  },
+                  {
+                    "ar": "بنتي",
+                    "en": "my daughter"
+                  },
+                  {
+                    "ar": "راديو",
+                    "en": "radio"
+                  },
+                  {
+                    "ar": "عربي",
+                    "en": "Arab"
+                  },
+                  {
+                    "ar": "علم",
+                    "en": "flag"
+                  },
+                  {
+                    "ar": "عندي",
+                    "en": "I have"
+                  },
+                  {
+                    "ar": "عيد الميلاد",
+                    "en": "Christmas"
+                  },
+                  {
+                    "ar": "مع / معي",
+                    "en": "with / I have"
+                  },
+                  {
+                    "ar": "معلم/معلمة",
+                    "en": "teacher (m/f)"
+                  },
+                  {
+                    "ar": "و",
+                    "en": "and"
+                  },
+                  {
+                    "ar": "ولدي",
+                    "en": "my son"
+                  }
+                ]
+              },
+              {
+                "id": "ss_l3",
+                "name": "Sound & Script – Lesson 3",
+                "vocab": [
+                  {
+                    "ar": "مكتب",
+                    "en": "desk/office"
+                  },
+                  {
+                    "ar": "أبريل",
+                    "en": "April"
+                  },
+                  {
+                    "ar": "أدرس",
+                    "en": "I study"
+                  },
+                  {
+                    "ar": "أسرتي",
+                    "en": "my family"
+                  },
+                  {
+                    "ar": "أسكن",
+                    "en": "I reside"
+                  },
+                  {
+                    "ar": "أكتوبر",
+                    "en": "October"
+                  },
+                  {
+                    "ar": "بيت",
+                    "en": "house"
+                  },
+                  {
+                    "ar": "تليفون",
+                    "en": "telephone"
+                  },
+                  {
+                    "ar": "ديسمبر",
+                    "en": "December"
+                  },
+                  {
+                    "ar": "رقيب",
+                    "en": "sergeant"
+                  },
+                  {
+                    "ar": "سبتمبر",
+                    "en": "September"
+                  },
+                  {
+                    "ar": "سبورة",
+                    "en": "blackboard"
+                  },
+                  {
+                    "ar": "سيارة",
+                    "en": "car"
+                  },
+                  {
+                    "ar": "فبراير",
+                    "en": "February"
+                  },
+                  {
+                    "ar": "كتاب",
+                    "en": "book"
+                  },
+                  {
+                    "ar": "كرة السلة",
+                    "en": "basketball"
+                  },
+                  {
+                    "ar": "قلم",
+                    "en": "pen"
+                  },
+                  {
+                    "ar": "مارس",
+                    "en": "March"
+                  },
+                  {
+                    "ar": "معهد الدفاع",
+                    "en": "Defense Institute"
+                  },
+                  {
+                    "ar": "نقيب",
+                    "en": "captain"
+                  },
+                  {
+                    "ar": "نوفمبر",
+                    "en": "November"
+                  },
+                  {
+                    "ar": "ولاية",
+                    "en": "state"
+                  },
+                  {
+                    "ar": "يناير",
+                    "en": "January"
+                  }
+                ]
+              },
+              {
+                "id": "ss_l4",
+                "name": "Sound & Script – Lesson 4",
+                "vocab": [
+                  {
+                    "ar": "جندي/جندية",
+                    "en": "soldier (m/f)"
+                  },
+                  {
+                    "ar": "أمريكي/أمريكية",
+                    "en": "American (m/f)"
+                  },
+                  {
+                    "ar": "القوات البحرية",
+                    "en": "Navy"
+                  },
+                  {
+                    "ar": "القوات الجوية",
+                    "en": "Air Force"
+                  },
+                  {
+                    "ar": "مشاة البحرية",
+                    "en": "Marines"
+                  },
+                  {
+                    "ar": "الجيش",
+                    "en": "Army"
+                  },
+                  {
+                    "ar": "مهندس",
+                    "en": "engineer"
+                  },
+                  {
+                    "ar": "أذهب",
+                    "en": "I go"
+                  },
+                  {
+                    "ar": "إلى",
+                    "en": "to"
+                  },
+                  {
+                    "ar": "في",
+                    "en": "in"
+                  },
+                  {
+                    "ar": "أستاذ/أستاذة",
+                    "en": "teacher (m/f)"
+                  },
+                  {
+                    "ar": "قديم/قديمة",
+                    "en": "old (things)"
+                  },
+                  {
+                    "ar": "جديد/جديدة",
+                    "en": "new"
+                  },
+                  {
+                    "ar": "أختي",
+                    "en": "my sister"
+                  },
+                  {
+                    "ar": "أخ",
+                    "en": "brother"
+                  },
+                  {
+                    "ar": "جميل/جميلة",
+                    "en": "pretty"
+                  },
+                  {
+                    "ar": "صباح الخير",
+                    "en": "good morning"
+                  },
+                  {
+                    "ar": "مساء الخير",
+                    "en": "good evening"
+                  },
+                  {
+                    "ar": "أحب",
+                    "en": "I love"
+                  },
+                  {
+                    "ar": "جدي",
+                    "en": "my grandfather"
+                  },
+                  {
+                    "ar": "جدتي",
+                    "en": "my grandmother"
+                  },
+                  {
+                    "ar": "شباك",
+                    "en": "window"
+                  },
+                  {
+                    "ar": "صف",
+                    "en": "classroom"
+                  }
+                ]
+              },
+              {
+                "id": "ss_l5",
+                "name": "Sound & Script – Lesson 5",
+                "vocab": [
+                  {
+                    "ar": "طالب/طالبة",
+                    "en": "student (m/f)"
+                  },
+                  {
+                    "ar": "أثاث",
+                    "en": "furniture"
+                  },
+                  {
+                    "ar": "أقضي",
+                    "en": "I spend (time)"
+                  },
+                  {
+                    "ar": "أنظر",
+                    "en": "look (imp.)"
+                  },
+                  {
+                    "ar": "ثكنة",
+                    "en": "barracks"
+                  },
+                  {
+                    "ar": "ثلاجة",
+                    "en": "refrigerator"
+                  },
+                  {
+                    "ar": "زميل/زميلة",
+                    "en": "colleague/classmate"
+                  },
+                  {
+                    "ar": "زوجتي",
+                    "en": "my wife"
+                  },
+                  {
+                    "ar": "زوجي",
+                    "en": "my husband"
+                  },
+                  {
+                    "ar": "صغير/صغيرة",
+                    "en": "small"
+                  },
+                  {
+                    "ar": "ضابط",
+                    "en": "officer"
+                  },
+                  {
+                    "ar": "طيار",
+                    "en": "pilot"
+                  },
+                  {
+                    "ar": "عطلة",
+                    "en": "holiday"
+                  },
+                  {
+                    "ar": "غرفة",
+                    "en": "room"
+                  },
+                  {
+                    "ar": "غاسلة",
+                    "en": "washer"
+                  },
+                  {
+                    "ar": "كبير/كبيرة",
+                    "en": "big"
+                  },
+                  {
+                    "ar": "لغة",
+                    "en": "language"
+                  },
+                  {
+                    "ar": "ما",
+                    "en": "what (noun)"
+                  },
+                  {
+                    "ar": "من",
+                    "en": "who"
+                  },
+                  {
+                    "ar": "هنا",
+                    "en": "here"
+                  },
+                  {
+                    "ar": "هناك",
+                    "en": "there"
+                  },
+                  {
+                    "ar": "هذا/هذه",
+                    "en": "this (m/f)"
+                  }
+                ]
+              },
+              {
+                "id": "ss_l6",
+                "name": "Sound & Script – Lesson 6 (Colors & 0–10)",
+                "vocab": [
+                  {
+                    "ar": "أبيض/بيضاء",
+                    "en": "white"
+                  },
+                  {
+                    "ar": "أحمر/حمراء",
+                    "en": "red"
+                  },
+                  {
+                    "ar": "أزرق/زرقاء",
+                    "en": "blue"
+                  },
+                  {
+                    "ar": "أسود/سوداء",
+                    "en": "black"
+                  },
+                  {
+                    "ar": "أصفر/صفراء",
+                    "en": "yellow"
+                  },
+                  {
+                    "ar": "أخضر/خضراء",
+                    "en": "green"
+                  },
+                  {
+                    "ar": "برتقالي/برتقالية",
+                    "en": "orange"
+                  },
+                  {
+                    "ar": "ذهبي/ذهبية",
+                    "en": "gold"
+                  },
+                  {
+                    "ar": "فضي/فضية",
+                    "en": "silver"
+                  },
+                  {
+                    "ar": "بني/بنية",
+                    "en": "brown"
+                  },
+                  {
+                    "ar": "بنفسجي/بنفسجية",
+                    "en": "violet"
+                  },
+                  {
+                    "ar": "صفر",
+                    "en": "zero"
+                  },
+                  {
+                    "ar": "واحد/واحدة",
+                    "en": "one"
+                  },
+                  {
+                    "ar": "اثنان/اثنتان",
+                    "en": "two"
+                  },
+                  {
+                    "ar": "ثلاث/ثلاثة",
+                    "en": "three"
+                  },
+                  {
+                    "ar": "أربع/أربعة",
+                    "en": "four"
+                  },
+                  {
+                    "ar": "خمس/خمسة",
+                    "en": "five"
+                  },
+                  {
+                    "ar": "ست/ستة",
+                    "en": "six"
+                  },
+                  {
+                    "ar": "سبع/سبعة",
+                    "en": "seven"
+                  },
+                  {
+                    "ar": "ثمان/ثمانية",
+                    "en": "eight"
+                  },
+                  {
+                    "ar": "تسع/تسعة",
+                    "en": "nine"
+                  },
+                  {
+                    "ar": "عشر/عشرة",
+                    "en": "ten"
+                  },
+                  {
+                    "ar": "كم",
+                    "en": "how many/how much"
+                  },
+                  {
+                    "ar": "لون",
+                    "en": "color"
+                  }
+                ]
+              },
+              {
+                "id": "ss_l7",
+                "name": "Sound & Script – Lesson 7 (11–100, Days)",
+                "vocab": [
+                  {
+                    "ar": "أحد عشر",
+                    "en": "eleven"
+                  },
+                  {
+                    "ar": "اثنا عشر",
+                    "en": "twelve"
+                  },
+                  {
+                    "ar": "ثلاثة عشر",
+                    "en": "thirteen"
+                  },
+                  {
+                    "ar": "أربعة عشر",
+                    "en": "fourteen"
+                  },
+                  {
+                    "ar": "خمسة عشر",
+                    "en": "fifteen"
+                  },
+                  {
+                    "ar": "ستة عشر",
+                    "en": "sixteen"
+                  },
+                  {
+                    "ar": "سبعة عشر",
+                    "en": "seventeen"
+                  },
+                  {
+                    "ar": "ثمانية عشر",
+                    "en": "eighteen"
+                  },
+                  {
+                    "ar": "تسعة عشر",
+                    "en": "nineteen"
+                  },
+                  {
+                    "ar": "عشرون/عشرين",
+                    "en": "twenty"
+                  },
+                  {
+                    "ar": "ثلاثون/ثلاثين",
+                    "en": "thirty"
+                  },
+                  {
+                    "ar": "أربعون/أربعين",
+                    "en": "forty"
+                  },
+                  {
+                    "ar": "خمسون/خمسين",
+                    "en": "fifty"
+                  },
+                  {
+                    "ar": "ستون/ستين",
+                    "en": "sixty"
+                  },
+                  {
+                    "ar": "سبعون/سبعين",
+                    "en": "seventy"
+                  },
+                  {
+                    "ar": "ثمانون/ثمانين",
+                    "en": "eighty"
+                  },
+                  {
+                    "ar": "تسعون/تسعين",
+                    "en": "ninety"
+                  },
+                  {
+                    "ar": "مئة",
+                    "en": "one hundred"
+                  },
+                  {
+                    "ar": "السبت",
+                    "en": "Saturday"
+                  },
+                  {
+                    "ar": "الأحد",
+                    "en": "Sunday"
+                  },
+                  {
+                    "ar": "الاثنين",
+                    "en": "Monday"
+                  },
+                  {
+                    "ar": "الثلاثاء",
+                    "en": "Tuesday"
+                  },
+                  {
+                    "ar": "الأربعاء",
+                    "en": "Wednesday"
+                  },
+                  {
+                    "ar": "الخميس",
+                    "en": "Thursday"
+                  },
+                  {
+                    "ar": "الجمعة",
+                    "en": "Friday"
+                  }
+                ]
+              },
+              {
+                "id": "ss_l8",
+                "name": "Sound & Script – Lesson 8 (Time & Weather)",
+                "vocab": [
+                  {
+                    "ar": "الساعة الواحدة",
+                    "en": "one o’clock"
+                  },
+                  {
+                    "ar": "الساعة الثانية",
+                    "en": "two o’clock"
+                  },
+                  {
+                    "ar": "الساعة الثالثة",
+                    "en": "three o’clock"
+                  },
+                  {
+                    "ar": "الساعة الرابعة",
+                    "en": "four o’clock"
+                  },
+                  {
+                    "ar": "الساعة الخامسة",
+                    "en": "five o’clock"
+                  },
+                  {
+                    "ar": "الساعة السادسة",
+                    "en": "six o’clock"
+                  },
+                  {
+                    "ar": "الساعة السابعة",
+                    "en": "seven o’clock"
+                  },
+                  {
+                    "ar": "الساعة الثامنة",
+                    "en": "eight o’clock"
+                  },
+                  {
+                    "ar": "الساعة التاسعة",
+                    "en": "nine o’clock"
+                  },
+                  {
+                    "ar": "الساعة العاشرة",
+                    "en": "ten o’clock"
+                  },
+                  {
+                    "ar": "الساعة الحادية عشرة",
+                    "en": "eleven o’clock"
+                  },
+                  {
+                    "ar": "الساعة الثانية عشرة",
+                    "en": "twelve o’clock"
+                  },
+                  {
+                    "ar": "ربع",
+                    "en": "quarter"
+                  },
+                  {
+                    "ar": "نصف",
+                    "en": "half"
+                  },
+                  {
+                    "ar": "ثلث",
+                    "en": "one-third"
+                  },
+                  {
+                    "ar": "إلا",
+                    "en": "to (time)"
+                  },
+                  {
+                    "ar": "دقيقة/دقائق",
+                    "en": "minute(s)"
+                  },
+                  {
+                    "ar": "صباحًا",
+                    "en": "in the morning"
+                  },
+                  {
+                    "ar": "مساءً",
+                    "en": "in the evening"
+                  },
+                  {
+                    "ar": "الطقس",
+                    "en": "weather"
+                  },
+                  {
+                    "ar": "فصل",
+                    "en": "season"
+                  },
+                  {
+                    "ar": "الشتاء",
+                    "en": "winter"
+                  },
+                  {
+                    "ar": "الربيع",
+                    "en": "spring"
+                  },
+                  {
+                    "ar": "الصيف",
+                    "en": "summer"
+                  },
+                  {
+                    "ar": "الخريف",
+                    "en": "autumn"
+                  },
+                  {
+                    "ar": "بارد",
+                    "en": "cold"
+                  },
+                  {
+                    "ar": "حار",
+                    "en": "hot"
+                  },
+                  {
+                    "ar": "معتدل",
+                    "en": "moderate"
+                  },
+                  {
+                    "ar": "ليس",
+                    "en": "is not / not to exist"
+                  }
+                ]
+              },
+              {
+                "id": "ss_l9",
+                "name": "Sound & Script – Lesson 9 (Food & Basics)",
+                "vocab": [
+                  {
+                    "ar": "وجبة الفطور",
+                    "en": "breakfast"
+                  },
+                  {
+                    "ar": "وجبة الغداء",
+                    "en": "lunch"
+                  },
+                  {
+                    "ar": "وجبة العشاء",
+                    "en": "dinner"
+                  },
+                  {
+                    "ar": "لبن",
+                    "en": "milk"
+                  },
+                  {
+                    "ar": "عصير برتقال",
+                    "en": "orange juice"
+                  },
+                  {
+                    "ar": "صودا",
+                    "en": "soda"
+                  },
+                  {
+                    "ar": "شاي",
+                    "en": "tea"
+                  },
+                  {
+                    "ar": "قهوة",
+                    "en": "coffee"
+                  },
+                  {
+                    "ar": "بيض",
+                    "en": "eggs"
+                  },
+                  {
+                    "ar": "دجاج",
+                    "en": "chicken"
+                  },
+                  {
+                    "ar": "موز",
+                    "en": "banana"
+                  },
+                  {
+                    "ar": "بطاطس/بطاطا",
+                    "en": "potato"
+                  },
+                  {
+                    "ar": "خبز",
+                    "en": "bread"
+                  },
+                  {
+                    "ar": "فلافل",
+                    "en": "falafel"
+                  },
+                  {
+                    "ar": "حمص",
+                    "en": "hummus"
+                  },
+                  {
+                    "ar": "لحم",
+                    "en": "meat"
+                  },
+                  {
+                    "ar": "هامبورجر",
+                    "en": "hamburger"
+                  },
+                  {
+                    "ar": "بيتزا",
+                    "en": "pizza"
+                  },
+                  {
+                    "ar": "كباب",
+                    "en": "kebab"
+                  },
+                  {
+                    "ar": "ماء",
+                    "en": "water"
+                  },
+                  {
+                    "ar": "جزر",
+                    "en": "carrot"
+                  },
+                  {
+                    "ar": "بروكلي",
+                    "en": "broccoli"
+                  },
+                  {
+                    "ar": "آيس كريم",
+                    "en": "ice cream"
+                  },
+                  {
+                    "ar": "هو/هي",
+                    "en": "he / she"
+                  },
+                  {
+                    "ar": "نعم / لا",
+                    "en": "yes / no"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "id": "unit_1",
+            "name": "Unit 1",
+            "chapters": [
+              {
+                "id": "u1_c1",
+                "name": "Unit 1 – Greetings, Introductions, Bio-Data",
+                "vocab": [
+                  {
+                    "ar": "السلام عليكم",
+                    "en": "peace be upon you"
+                  },
+                  {
+                    "ar": "وعليكم السلام",
+                    "en": "and upon you be peace"
+                  },
+                  {
+                    "ar": "صباح الخير",
+                    "en": "good morning"
+                  },
+                  {
+                    "ar": "صباح النور",
+                    "en": "good morning (response)"
+                  },
+                  {
+                    "ar": "مرحباً بك",
+                    "en": "welcome"
+                  },
+                  {
+                    "ar": "تشرفنا",
+                    "en": "it’s a pleasure"
+                  },
+                  {
+                    "ar": "اسمي",
+                    "en": "my name is"
+                  },
+                  {
+                    "ar": "تفضل",
+                    "en": "please come in"
+                  },
+                  {
+                    "ar": "إلى اللقاء",
+                    "en": "good-bye"
+                  },
+                  {
+                    "ar": "تصبحون على خير",
+                    "en": "good night"
+                  },
+                  {
+                    "ar": "أسبوع/أسابيع",
+                    "en": "week(s)"
+                  },
+                  {
+                    "ar": "جامعة/جامعات",
+                    "en": "university(ies)"
+                  },
+                  {
+                    "ar": "شركة/شركات",
+                    "en": "company(ies)"
+                  },
+                  {
+                    "ar": "مستشفى/مستشفيات",
+                    "en": "hospital(s)"
+                  },
+                  {
+                    "ar": "مصرف/مصارف",
+                    "en": "bank(s)"
+                  }
+                ]
+              },
+              {
+                "id": "u1_c2",
+                "name": "Unit 1 – Locations, Terrain, Weather",
+                "vocab": [
+                  {
+                    "ar": "عاصمة/عواصم",
+                    "en": "capital(s)"
+                  },
+                  {
+                    "ar": "ولاية/ولايات",
+                    "en": "state(s)"
+                  },
+                  {
+                    "ar": "مدينة/مدن",
+                    "en": "city(ies)"
+                  },
+                  {
+                    "ar": "مسافة/مسافات",
+                    "en": "distance(s)"
+                  },
+                  {
+                    "ar": "بحيرة/بحيرات",
+                    "en": "lake(s)"
+                  },
+                  {
+                    "ar": "جبل/جبال",
+                    "en": "mountain(s)"
+                  },
+                  {
+                    "ar": "صحراء/صحارى",
+                    "en": "desert(s)"
+                  },
+                  {
+                    "ar": "خليج/خلجان",
+                    "en": "gulf(s)"
+                  },
+                  {
+                    "ar": "جزيرة/جزر",
+                    "en": "island(s)"
+                  },
+                  {
+                    "ar": "نهر/أنهار",
+                    "en": "river(s)"
+                  },
+                  {
+                    "ar": "محيط/محيطات",
+                    "en": "ocean(s)"
+                  },
+                  {
+                    "ar": "ممطر",
+                    "en": "rainy"
+                  },
+                  {
+                    "ar": "غائم",
+                    "en": "cloudy"
+                  },
+                  {
+                    "ar": "مشمس",
+                    "en": "sunny"
+                  },
+                  {
+                    "ar": "ضبابي",
+                    "en": "foggy"
+                  },
+                  {
+                    "ar": "حار/أحر من",
+                    "en": "hot / hotter than"
+                  },
+                  {
+                    "ar": "بارد/أبرد من",
+                    "en": "cold / colder than"
+                  },
+                  {
+                    "ar": "معتدل",
+                    "en": "moderate"
+                  },
+                  {
+                    "ar": "صيف/شتاء/ربيع/خريف",
+                    "en": "summer/winter/spring/autumn"
+                  },
+                  {
+                    "ar": "متى",
+                    "en": "when"
+                  },
+                  {
+                    "ar": "أين",
+                    "en": "where"
+                  }
+                ]
+              },
+              {
+                "id": "u1_c3",
+                "name": "Unit 1 – Your Immediate Environment",
+                "vocab": [
+                  {
+                    "ar": "شاب/شابة",
+                    "en": "young man/woman"
+                  },
+                  {
+                    "ar": "قصير/قصيرة",
+                    "en": "short"
+                  },
+                  {
+                    "ar": "طويل/طويلة",
+                    "en": "tall"
+                  },
+                  {
+                    "ar": "نحيف/نحيفة",
+                    "en": "slim"
+                  },
+                  {
+                    "ar": "بدين/بدينة",
+                    "en": "heavy"
+                  },
+                  {
+                    "ar": "وسيم/وسيمة",
+                    "en": "handsome"
+                  },
+                  {
+                    "ar": "أنيق/أنيقة",
+                    "en": "elegant"
+                  },
+                  {
+                    "ar": "عين/عيون",
+                    "en": "eye(s)"
+                  },
+                  {
+                    "ar": "شعر",
+                    "en": "hair"
+                  },
+                  {
+                    "ar": "نظارة/نظارات",
+                    "en": "eyeglasses"
+                  },
+                  {
+                    "ar": "قميص/قمصان",
+                    "en": "shirt(s)"
+                  },
+                  {
+                    "ar": "بنطلون/بنطلونات",
+                    "en": "pants"
+                  },
+                  {
+                    "ar": "سوق/أسواق",
+                    "en": "market(s)"
+                  },
+                  {
+                    "ar": "شارع/شوارع",
+                    "en": "street(s)"
+                  },
+                  {
+                    "ar": "كنيسة/كنائس",
+                    "en": "church(es)"
+                  },
+                  {
+                    "ar": "مسجد/مساجد",
+                    "en": "mosque(s)"
+                  },
+                  {
+                    "ar": "حديقة عامة",
+                    "en": "public park"
+                  },
+                  {
+                    "ar": "محطة/محطات",
+                    "en": "station(s)"
+                  }
+                ]
+              },
+              {
+                "id": "u1_c4",
+                "name": "Unit 1 – The Family Home",
+                "vocab": [
+                  {
+                    "ar": "صالة",
+                    "en": "living room"
+                  },
+                  {
+                    "ar": "غرفة جلوس",
+                    "en": "sitting room"
+                  },
+                  {
+                    "ar": "غرفة طعام",
+                    "en": "dining room"
+                  },
+                  {
+                    "ar": "غرفة نوم",
+                    "en": "bedroom"
+                  },
+                  {
+                    "ar": "حمّام",
+                    "en": "bathroom"
+                  },
+                  {
+                    "ar": "مطبخ",
+                    "en": "kitchen"
+                  },
+                  {
+                    "ar": "شرفة",
+                    "en": "balcony"
+                  },
+                  {
+                    "ar": "طابق/طوابق",
+                    "en": "floor(s)"
+                  },
+                  {
+                    "ar": "شقة/شقق",
+                    "en": "apartment(s)"
+                  },
+                  {
+                    "ar": "بناية/عمارة",
+                    "en": "building"
+                  },
+                  {
+                    "ar": "مصعد",
+                    "en": "elevator"
+                  },
+                  {
+                    "ar": "سلالم",
+                    "en": "stairs"
+                  },
+                  {
+                    "ar": "مسبح",
+                    "en": "swimming pool"
+                  },
+                  {
+                    "ar": "بوابة",
+                    "en": "gate"
+                  },
+                  {
+                    "ar": "سرير",
+                    "en": "bed"
+                  },
+                  {
+                    "ar": "خزانة ملابس",
+                    "en": "wardrobe"
+                  },
+                  {
+                    "ar": "أريكة",
+                    "en": "couch"
+                  },
+                  {
+                    "ar": "سجادة",
+                    "en": "carpet"
+                  },
+                  {
+                    "ar": "موقد",
+                    "en": "stove"
+                  },
+                  {
+                    "ar": "ستارة/ستائر",
+                    "en": "curtain(s)"
+                  }
+                ]
+              },
+              {
+                "id": "u1_c5",
+                "name": "Unit 1 – Military Life",
+                "vocab": [
+                  {
+                    "ar": "سرية/سرايا",
+                    "en": "company (military)"
+                  },
+                  {
+                    "ar": "فصيلة/فصائل",
+                    "en": "platoon"
+                  },
+                  {
+                    "ar": "كتيبة/كتائب",
+                    "en": "battalion"
+                  },
+                  {
+                    "ar": "قاعدة/قواعد",
+                    "en": "base"
+                  },
+                  {
+                    "ar": "قيادة",
+                    "en": "headquarters"
+                  },
+                  {
+                    "ar": "لواء",
+                    "en": "brigade"
+                  },
+                  {
+                    "ar": "رقيب/رقباء",
+                    "en": "sergeant"
+                  },
+                  {
+                    "ar": "نقيب",
+                    "en": "captain"
+                  },
+                  {
+                    "ar": "ملازم أول",
+                    "en": "first lieutenant"
+                  },
+                  {
+                    "ar": "تشكيل عسكري",
+                    "en": "military formation"
+                  },
+                  {
+                    "ar": "رفع العلم",
+                    "en": "raising the flag"
+                  },
+                  {
+                    "ar": "تدريب رياضي",
+                    "en": "physical training"
+                  },
+                  {
+                    "ar": "صف مسائي",
+                    "en": "evening class"
+                  },
+                  {
+                    "ar": "يوجد/توجد",
+                    "en": "there is/are"
+                  },
+                  {
+                    "ar": "دخل/دخول",
+                    "en": "to enter/entering"
+                  },
+                  {
+                    "ar": "جلس/جلوس",
+                    "en": "to sit/sitting"
+                  },
+                  {
+                    "ar": "استيقظ",
+                    "en": "to wake up"
+                  },
+                  {
+                    "ar": "رتّب/ترتيب",
+                    "en": "to organize"
+                  },
+                  {
+                    "ar": "نظّف/تنظيف",
+                    "en": "to clean"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "id": "unit_2",
+            "name": "Unit 2",
+            "chapters": [
+              {
+                "id": "u2_c6",
+                "name": "Chapter 6 – What I Used to Have and Do",
+                "vocab": [
+                  {
+                    "ar": "شبة جزيرة",
+                    "en": "peninsula"
+                  },
+                  {
+                    "ar": "منشور/منشورات",
+                    "en": "brochure(s)"
+                  },
+                  {
+                    "ar": "دليل سياحي",
+                    "en": "tour guide"
+                  },
+                  {
+                    "ar": "نشاط/أنشطة",
+                    "en": "activity(ies)"
+                  },
+                  {
+                    "ar": "ركوب (الدراجات/الخيل)",
+                    "en": "riding (bicycles/horses)"
+                  },
+                  {
+                    "ar": "صيد السمك",
+                    "en": "fishing"
+                  },
+                  {
+                    "ar": "تنزّه على الأقدام",
+                    "en": "hiking"
+                  },
+                  {
+                    "ar": "سباحة",
+                    "en": "swimming"
+                  },
+                  {
+                    "ar": "ركوب الأمواج",
+                    "en": "surfing"
+                  },
+                  {
+                    "ar": "بلد أجنبي/بلاد أجنبية",
+                    "en": "foreign country(ies)"
+                  },
+                  {
+                    "ar": "حي/أحياء",
+                    "en": "neighborhood(s)"
+                  },
+                  {
+                    "ar": "مدينة سياحية/مدن سياحية",
+                    "en": "tourist city(ies)"
+                  },
+                  {
+                    "ar": "مزرعة/مزارع",
+                    "en": "farm(s)"
+                  },
+                  {
+                    "ar": "ريف",
+                    "en": "countryside"
+                  },
+                  {
+                    "ar": "مهرجان/مهرجانات",
+                    "en": "festival(s)"
+                  },
+                  {
+                    "ar": "أجنبي/أجانب",
+                    "en": "foreign, foreigner"
+                  },
+                  {
+                    "ar": "موسم/مواسم",
+                    "en": "season(s)"
+                  },
+                  {
+                    "ar": "برّ",
+                    "en": "land"
+                  },
+                  {
+                    "ar": "ضاحية/ضواحي",
+                    "en": "suburb(s)"
+                  },
+                  {
+                    "ar": "موسم الحصاد/مواسم",
+                    "en": "harvest season(s)"
+                  },
+                  {
+                    "ar": "مناخ",
+                    "en": "climate"
+                  },
+                  {
+                    "ar": "أماكن سياحية",
+                    "en": "tourist sites/sites of interest"
+                  },
+                  {
+                    "ar": "كنتُ أعمل في ... كـ",
+                    "en": "I used to work in… as a…"
+                  },
+                  {
+                    "ar": "نادل",
+                    "en": "waiter"
+                  },
+                  {
+                    "ar": "ممرضة",
+                    "en": "nurse (f)"
+                  },
+                  {
+                    "ar": "صراف",
+                    "en": "bank teller/cashier"
+                  },
+                  {
+                    "ar": "مدرّس",
+                    "en": "teacher"
+                  },
+                  {
+                    "ar": "طباخ",
+                    "en": "chef/cook"
+                  },
+                  {
+                    "ar": "موظفة استقبال",
+                    "en": "receptionist (f)"
+                  },
+                  {
+                    "ar": "سائق",
+                    "en": "chauffeur/driver"
+                  },
+                  {
+                    "ar": "بائع/بائعون/باعة",
+                    "en": "salesman(men)"
+                  },
+                  {
+                    "ar": "مدير/مديرون",
+                    "en": "manager(s)"
+                  },
+                  {
+                    "ar": "شاغر/شاغرة",
+                    "en": "empty, vacant"
+                  },
+                  {
+                    "ar": "مربية أطفال",
+                    "en": "babysitter, nanny"
+                  },
+                  {
+                    "ar": "وظيفة/وظائف",
+                    "en": "job(s), position(s)"
+                  },
+                  {
+                    "ar": "موظف",
+                    "en": "employee"
+                  },
+                  {
+                    "ar": "ممتع",
+                    "en": "enjoyable"
+                  },
+                  {
+                    "ar": "عديد/عديدة",
+                    "en": "numerous (m/f)"
+                  },
+                  {
+                    "ar": "مسرور",
+                    "en": "pleased"
+                  },
+                  {
+                    "ar": "كان",
+                    "en": "was (past 'to be')"
+                  },
+                  {
+                    "ar": "صاد/صيد",
+                    "en": "to hunt/hunting"
+                  },
+                  {
+                    "ar": "صاد الأسماك/صيد",
+                    "en": "to fish/fishing"
+                  },
+                  {
+                    "ar": "نظّم/تنظيم",
+                    "en": "to organize/organizing"
+                  },
+                  {
+                    "ar": "ساق/سوق",
+                    "en": "to drive/driving"
+                  },
+                  {
+                    "ar": "غاص/غوص",
+                    "en": "to dive/diving"
+                  },
+                  {
+                    "ar": "تجوّل/تجوّل",
+                    "en": "to tour/touring"
+                  },
+                  {
+                    "ar": "استمتع ب/استمتاع",
+                    "en": "to enjoy/enjoying"
+                  },
+                  {
+                    "ar": "مارس/ممارسة",
+                    "en": "to practice/practicing"
+                  },
+                  {
+                    "ar": "خيّم/تخييم",
+                    "en": "to camp/camping"
+                  },
+                  {
+                    "ar": "عاش/عيش",
+                    "en": "to live/living"
+                  },
+                  {
+                    "ar": "قضى/قضاء",
+                    "en": "to spend time/spending time"
+                  }
+                ]
+              },
+              {
+                "id": "u2_c7",
+                "name": "Chapter 7 – Education and Jobs",
+                "vocab": [
+                  {
+                    "ar": "روضة",
+                    "en": "kindergarten"
+                  },
+                  {
+                    "ar": "مدرسة ابتدائية",
+                    "en": "elementary school"
+                  },
+                  {
+                    "ar": "مدرسة متوسطة",
+                    "en": "middle school"
+                  },
+                  {
+                    "ar": "مدرسة ثانوية",
+                    "en": "high school"
+                  },
+                  {
+                    "ar": "صف/صفوف",
+                    "en": "classroom(s)"
+                  },
+                  {
+                    "ar": "جيولوجيا",
+                    "en": "geology"
+                  },
+                  {
+                    "ar": "كيمياء",
+                    "en": "chemistry"
+                  },
+                  {
+                    "ar": "رياضيات",
+                    "en": "mathematics"
+                  },
+                  {
+                    "ar": "تاريخ",
+                    "en": "history"
+                  },
+                  {
+                    "ar": "فيزياء",
+                    "en": "physics"
+                  },
+                  {
+                    "ar": "جغرافيا",
+                    "en": "geography"
+                  },
+                  {
+                    "ar": "أحياء",
+                    "en": "biology"
+                  },
+                  {
+                    "ar": "مادة/مواد",
+                    "en": "subject(s)"
+                  },
+                  {
+                    "ar": "شهادة/شهادات تفوق",
+                    "en": "certificate(s) of excellence"
+                  },
+                  {
+                    "ar": "تربية بدنية",
+                    "en": "physical education"
+                  },
+                  {
+                    "ar": "تقرير/تقارير الدرجات",
+                    "en": "report card(s)"
+                  },
+                  {
+                    "ar": "مدرسة/مدارس",
+                    "en": "school(s)"
+                  },
+                  {
+                    "ar": "بنون/بنين",
+                    "en": "boys"
+                  },
+                  {
+                    "ar": "الأدب الإنجليزي",
+                    "en": "English literature"
+                  },
+                  {
+                    "ar": "التقويم الدراسي",
+                    "en": "school calendar"
+                  },
+                  {
+                    "ar": "جدول الحصص",
+                    "en": "schedule of teaching hours"
+                  },
+                  {
+                    "ar": "دائماً/عادةً/غالباً",
+                    "en": "always / usually / most likely"
+                  },
+                  {
+                    "ar": "نهاية/بداية/منتصف",
+                    "en": "end/beginning/middle"
+                  },
+                  {
+                    "ar": "إجازة/إجازات",
+                    "en": "vacation/leave(s)"
+                  },
+                  {
+                    "ar": "رأس السنة",
+                    "en": "New Year’s Day"
+                  },
+                  {
+                    "ar": "حصة/حصص",
+                    "en": "school hour(s)"
+                  },
+                  {
+                    "ar": "محامٍ",
+                    "en": "lawyer"
+                  },
+                  {
+                    "ar": "مترجم",
+                    "en": "translator"
+                  },
+                  {
+                    "ar": "مهندس",
+                    "en": "engineer"
+                  },
+                  {
+                    "ar": "مؤهّل عالٍ/مؤهلات عالية",
+                    "en": "graduate/post-graduate degree(s)"
+                  },
+                  {
+                    "ar": "رسام/رسامون",
+                    "en": "painter(s)"
+                  },
+                  {
+                    "ar": "راتب/رواتب",
+                    "en": "salary(ies)"
+                  },
+                  {
+                    "ar": "مجال/مجالات",
+                    "en": "field(s)"
+                  },
+                  {
+                    "ar": "سيرة/سير ذاتية",
+                    "en": "résumé(s)"
+                  },
+                  {
+                    "ar": "شهادة/شهادات",
+                    "en": "certificate(s)"
+                  },
+                  {
+                    "ar": "خبرة/خبرات",
+                    "en": "experience(s)"
+                  },
+                  {
+                    "ar": "شرطيّ/شرطة",
+                    "en": "policeman(men)"
+                  },
+                  {
+                    "ar": "سجن/سجون",
+                    "en": "jail(s)/prison(s)"
+                  },
+                  {
+                    "ar": "سائق تاكسي",
+                    "en": "taxi driver(s)"
+                  },
+                  {
+                    "ar": "كسلان",
+                    "en": "lazy"
+                  },
+                  {
+                    "ar": "عاطل عن العمل",
+                    "en": "unemployed"
+                  },
+                  {
+                    "ar": "مجتهد",
+                    "en": "diligent/hard-working"
+                  },
+                  {
+                    "ar": "مهنة/مهن",
+                    "en": "profession(s)"
+                  },
+                  {
+                    "ar": "حرفة/حرف",
+                    "en": "skilled trade(s)"
+                  },
+                  {
+                    "ar": "محاسب",
+                    "en": "accountant"
+                  },
+                  {
+                    "ar": "وُلِد",
+                    "en": "was born"
+                  },
+                  {
+                    "ar": "بحاجة إلى",
+                    "en": "in need of"
+                  },
+                  {
+                    "ar": "مجرم",
+                    "en": "criminal"
+                  },
+                  {
+                    "ar": "التحق بـ/التحاق",
+                    "en": "to join/joining"
+                  },
+                  {
+                    "ar": "تخرج/تخرج",
+                    "en": "to graduate/graduating"
+                  },
+                  {
+                    "ar": "نجح/نجاح",
+                    "en": "to pass, to succeed/passing"
+                  },
+                  {
+                    "ar": "رسب/رسوب",
+                    "en": "to fail/failing"
+                  },
+                  {
+                    "ar": "أعلن/إعلان",
+                    "en": "to announce/advertise"
+                  },
+                  {
+                    "ar": "رسم/رسم",
+                    "en": "to draw/drawing"
+                  },
+                  {
+                    "ar": "ما زال",
+                    "en": "still"
+                  }
+                ]
+              },
+              {
+                "id": "u2_c8",
+                "name": "Chapter 8 – My Life at DLI",
+                "vocab": [
+                  {
+                    "ar": "أثناء",
+                    "en": "during"
+                  },
+                  {
+                    "ar": "بعد ذلك",
+                    "en": "after that"
+                  },
+                  {
+                    "ar": "حان وقت...",
+                    "en": "it is time for..."
+                  },
+                  {
+                    "ar": "حسب",
+                    "en": "according to/in accordance with"
+                  },
+                  {
+                    "ar": "حلول",
+                    "en": "arrival (of a time/deadline)"
+                  },
+                  {
+                    "ar": "ضيق",
+                    "en": "tight/narrow"
+                  },
+                  {
+                    "ar": "الحج",
+                    "en": "pilgrimage"
+                  },
+                  {
+                    "ar": "رأس السنة الميلادية",
+                    "en": "New Year’s Day"
+                  },
+                  {
+                    "ar": "رأس السنة الهجرية",
+                    "en": "Hijira New Year’s Day"
+                  },
+                  {
+                    "ar": "صيام",
+                    "en": "fasting"
+                  },
+                  {
+                    "ar": "يوم الرؤساء",
+                    "en": "President’s Day"
+                  },
+                  {
+                    "ar": "عيد العمال",
+                    "en": "Labor Day"
+                  },
+                  {
+                    "ar": "عيد الاستقلال",
+                    "en": "Independence Day"
+                  },
+                  {
+                    "ar": "عيد الأضحى المبارك",
+                    "en": "Eid al-Adha (Greater Bairam)"
+                  },
+                  {
+                    "ar": "عيد الذكرى",
+                    "en": "Memorial Day"
+                  },
+                  {
+                    "ar": "عيد الشكر",
+                    "en": "Thanksgiving Day"
+                  },
+                  {
+                    "ar": "عيد الفصح/القيامة",
+                    "en": "Easter/Resurrection Day"
+                  },
+                  {
+                    "ar": "عيد ميلاد المسيح",
+                    "en": "Christmas"
+                  },
+                  {
+                    "ar": "حذاء/أحذية",
+                    "en": "shoe(s)"
+                  },
+                  {
+                    "ar": "حوض/أحواض",
+                    "en": "sink(s)/tub(s)/basin(s)"
+                  },
+                  {
+                    "ar": "فرشاة/فرُش",
+                    "en": "brush(es)"
+                  },
+                  {
+                    "ar": "كيس/أكياس",
+                    "en": "bag(s)"
+                  },
+                  {
+                    "ar": "لكن",
+                    "en": "but"
+                  },
+                  {
+                    "ar": "معجون",
+                    "en": "paste"
+                  },
+                  {
+                    "ar": "وجه/وجوه",
+                    "en": "face(s)"
+                  },
+                  {
+                    "ar": "ورقة/أوراق",
+                    "en": "paper(s)"
+                  },
+                  {
+                    "ar": "يد/أيادي",
+                    "en": "hand(s)"
+                  },
+                  {
+                    "ar": "زي عسكري/أزياء عسكرية",
+                    "en": "military uniform(s)"
+                  },
+                  {
+                    "ar": "سن/أسنان",
+                    "en": "tooth/teeth"
+                  },
+                  {
+                    "ar": "سوف/لن",
+                    "en": "will / will not"
+                  },
+                  {
+                    "ar": "استحم/استحمام",
+                    "en": "to shower/bathe"
+                  },
+                  {
+                    "ar": "تأخر/تأخر",
+                    "en": "to be late"
+                  },
+                  {
+                    "ar": "حضّر/تحضير",
+                    "en": "to prepare/preparing"
+                  },
+                  {
+                    "ar": "خلع/خلع",
+                    "en": "to take off (clothes/shoes)"
+                  },
+                  {
+                    "ar": "درّب/تدريب",
+                    "en": "to train/training"
+                  },
+                  {
+                    "ar": "فرش/تفريش",
+                    "en": "to brush/brushing"
+                  },
+                  {
+                    "ar": "فضّل/تفضيل",
+                    "en": "to prefer/preferring"
+                  },
+                  {
+                    "ar": "كوَى/كي",
+                    "en": "to iron"
+                  },
+                  {
+                    "ar": "لمّع/تلميع",
+                    "en": "to shine (polish)"
+                  },
+                  {
+                    "ar": "مشّط/تمشيط",
+                    "en": "to comb/combing"
+                  },
+                  {
+                    "ar": "علّم/تعليم",
+                    "en": "to teach/teaching"
+                  },
+                  {
+                    "ar": "تعلّم/تعلّم",
+                    "en": "to learn/learning"
+                  },
+                  {
+                    "ar": "حصل على/حصول",
+                    "en": "to obtain/obtaining"
+                  },
+                  {
+                    "ar": "تكلّم/تكلّم",
+                    "en": "to talk (with)"
+                  },
+                  {
+                    "ar": "كلّم/تكليم",
+                    "en": "to talk (to)"
+                  },
+                  {
+                    "ar": "قال/قول",
+                    "en": "to say/saying"
+                  }
+                ]
+              },
+              {
+                "id": "u2_c9",
+                "name": "Chapter 9 – Leisure Time",
+                "vocab": [
+                  {
+                    "ar": "أنشطة عطلة نهاية الأسبوع",
+                    "en": "weekend activities"
+                  },
+                  {
+                    "ar": "نزهة/نزهات",
+                    "en": "picnic(s)"
+                  },
+                  {
+                    "ar": "ألعاب رياضية",
+                    "en": "sports"
+                  },
+                  {
+                    "ar": "كرة الطائرة",
+                    "en": "volleyball"
+                  },
+                  {
+                    "ar": "كرة القدم الأمريكية",
+                    "en": "football (US)"
+                  },
+                  {
+                    "ar": "منتزه/منتزهات",
+                    "en": "park(s)"
+                  },
+                  {
+                    "ar": "مسرح/مسارح",
+                    "en": "theater(s)"
+                  },
+                  {
+                    "ar": "فندق/فنادق",
+                    "en": "hotel(s)"
+                  },
+                  {
+                    "ar": "وقت الفراغ",
+                    "en": "free time"
+                  },
+                  {
+                    "ar": "رحلة/رحلات",
+                    "en": "trip(s)"
+                  },
+                  {
+                    "ar": "مشي",
+                    "en": "walking"
+                  },
+                  {
+                    "ar": "ركض",
+                    "en": "running"
+                  },
+                  {
+                    "ar": "شطرنج",
+                    "en": "chess"
+                  },
+                  {
+                    "ar": "سباق السيارات",
+                    "en": "car racing"
+                  },
+                  {
+                    "ar": "مبارزة",
+                    "en": "fencing"
+                  },
+                  {
+                    "ar": "مصارعة",
+                    "en": "wrestling"
+                  },
+                  {
+                    "ar": "رفع الأثقال",
+                    "en": "weightlifting"
+                  },
+                  {
+                    "ar": "لحم مشوي",
+                    "en": "grilled meat"
+                  },
+                  {
+                    "ar": "دجاج مشوي",
+                    "en": "grilled chicken"
+                  },
+                  {
+                    "ar": "شوربة",
+                    "en": "soup"
+                  },
+                  {
+                    "ar": "سلطة/سلطات",
+                    "en": "salad(s)"
+                  },
+                  {
+                    "ar": "خضراوات",
+                    "en": "vegetables"
+                  },
+                  {
+                    "ar": "فواكه/فاكهة",
+                    "en": "fruit"
+                  },
+                  {
+                    "ar": "سمك/أسماك",
+                    "en": "fish"
+                  },
+                  {
+                    "ar": "مأكولات بحرية",
+                    "en": "seafood"
+                  },
+                  {
+                    "ar": "طازج",
+                    "en": "fresh"
+                  },
+                  {
+                    "ar": "حلويات",
+                    "en": "dessert"
+                  },
+                  {
+                    "ar": "وجبات سريعة",
+                    "en": "fast food"
+                  },
+                  {
+                    "ar": "عطشان",
+                    "en": "thirsty"
+                  },
+                  {
+                    "ar": "جائع",
+                    "en": "hungry"
+                  },
+                  {
+                    "ar": "شبعان",
+                    "en": "full (fed)"
+                  },
+                  {
+                    "ar": "قائمة الطعام/قوائم",
+                    "en": "food menu(s)"
+                  },
+                  {
+                    "ar": "نباتي",
+                    "en": "vegetarian"
+                  },
+                  {
+                    "ar": "تشكيلة",
+                    "en": "variety"
+                  },
+                  {
+                    "ar": "لذيذ",
+                    "en": "delicious"
+                  },
+                  {
+                    "ar": "بقشيش",
+                    "en": "tip"
+                  },
+                  {
+                    "ar": "سائح/سياح/سائحون/سائحات",
+                    "en": "tourist(s)"
+                  },
+                  {
+                    "ar": "متحف/متاحف",
+                    "en": "museum(s)"
+                  },
+                  {
+                    "ar": "حديقة الحيوان/حدائق الحيوان",
+                    "en": "zoo(s)"
+                  },
+                  {
+                    "ar": "معلومات",
+                    "en": "information"
+                  },
+                  {
+                    "ar": "شاطئ/شواطئ",
+                    "en": "beach(es)"
+                  },
+                  {
+                    "ar": "سفينة/سفن",
+                    "en": "ship(s)"
+                  },
+                  {
+                    "ar": "سبح/سباحة",
+                    "en": "to swim/swimming"
+                  },
+                  {
+                    "ar": "مارس/ممارس",
+                    "en": "to practice/practicing"
+                  },
+                  {
+                    "ar": "تجوّل/تجول",
+                    "en": "to tour/touring"
+                  },
+                  {
+                    "ar": "تواعد",
+                    "en": "to agree (on a time)"
+                  },
+                  {
+                    "ar": "رافق/مرافقة",
+                    "en": "to accompany"
+                  },
+                  {
+                    "ar": "كسب/كسب",
+                    "en": "to earn/earning"
+                  },
+                  {
+                    "ar": "فاز/فوز",
+                    "en": "to win/winning"
+                  },
+                  {
+                    "ar": "حمل/حمل",
+                    "en": "to carry/carrying"
+                  },
+                  {
+                    "ar": "دفع/دفع",
+                    "en": "to pay/paying"
+                  },
+                  {
+                    "ar": "شارك/مشاركة",
+                    "en": "to participate/participating"
+                  },
+                  {
+                    "ar": "احتفظ بـ/احتفاظ",
+                    "en": "to keep/keeping"
+                  },
+                  {
+                    "ar": "حجز/حجز",
+                    "en": "to reserve/reserving"
+                  }
+                ]
+              },
+              {
+                "id": "u2_c10",
+                "name": "Chapter 10 – Weekend Activities",
+                "vocab": [
+                  {
+                    "ar": "تجمع عائلي/تجمعات عائلية",
+                    "en": "family gathering(s)"
+                  },
+                  {
+                    "ar": "خلاب",
+                    "en": "charming, fascinating"
+                  },
+                  {
+                    "ar": "غابة",
+                    "en": "woods, forest"
+                  },
+                  {
+                    "ar": "غروب الشمس",
+                    "en": "sunset"
+                  },
+                  {
+                    "ar": "قمة الجبل/قمم",
+                    "en": "mountaintop(s)"
+                  },
+                  {
+                    "ar": "ماضٍ",
+                    "en": "past, last"
+                  },
+                  {
+                    "ar": "مدينة الملاهي/مدن",
+                    "en": "theme park(s)"
+                  },
+                  {
+                    "ar": "مزدحم",
+                    "en": "crowded"
+                  },
+                  {
+                    "ar": "مزرعة/مزارع",
+                    "en": "ranch(es), farm(s)"
+                  },
+                  {
+                    "ar": "مسبح/مسابح",
+                    "en": "swimming pool(s)"
+                  },
+                  {
+                    "ar": "مطار/مطارات",
+                    "en": "airport(s)"
+                  },
+                  {
+                    "ar": "ملهى ليلي/ملاهٍ ليلية",
+                    "en": "night club(s)"
+                  },
+                  {
+                    "ar": "منظر/مناظر",
+                    "en": "scene(s)"
+                  },
+                  {
+                    "ar": "نزهة/نزهات",
+                    "en": "picnic(s)"
+                  },
+                  {
+                    "ar": "وسط المدينة",
+                    "en": "downtown"
+                  },
+                  {
+                    "ar": "رمل/رمال",
+                    "en": "sand"
+                  },
+                  {
+                    "ar": "خطوبة/حفلات خطوبة",
+                    "en": "engagement(s)"
+                  },
+                  {
+                    "ar": "رسالة/رسائل",
+                    "en": "letter(s)/message(s)"
+                  },
+                  {
+                    "ar": "سيّء",
+                    "en": "bad"
+                  },
+                  {
+                    "ar": "شجرة/أشجار",
+                    "en": "tree(s)"
+                  },
+                  {
+                    "ar": "عيد زواج/أعياد زواج",
+                    "en": "wedding anniversary(ies)"
+                  },
+                  {
+                    "ar": "مباراة/مباريات",
+                    "en": "match(es)/game(s)"
+                  },
+                  {
+                    "ar": "مجموعة/مجموعات",
+                    "en": "group(s)"
+                  },
+                  {
+                    "ar": "مفاجأة/مفاجآت",
+                    "en": "surprise(s)"
+                  },
+                  {
+                    "ar": "مجانا",
+                    "en": "free, at no charge"
+                  },
+                  {
+                    "ar": "طفل/أطفال",
+                    "en": "child(ren)"
+                  },
+                  {
+                    "ar": "شخص/أشخاص",
+                    "en": "person(s)"
+                  },
+                  {
+                    "ar": "عائلة/عائلات",
+                    "en": "family(ies)"
+                  },
+                  {
+                    "ar": "اتجه/اتجاه",
+                    "en": "to head toward/heading toward"
+                  },
+                  {
+                    "ar": "استلم/استلام",
+                    "en": "to receive/receiving"
+                  },
+                  {
+                    "ar": "اعتقد (أن)/اعتقاد",
+                    "en": "to believe (that)/believing (that)"
+                  },
+                  {
+                    "ar": "أقام/إقامة",
+                    "en": "to stay, reside/staying, residing"
+                  },
+                  {
+                    "ar": "تجوّل/تجوّل",
+                    "en": "to wander around/wandering"
+                  },
+                  {
+                    "ar": "تحرّك/تحرّك",
+                    "en": "to move/moving"
+                  },
+                  {
+                    "ar": "تذكر/تذكر",
+                    "en": "to remember/remembering"
+                  },
+                  {
+                    "ar": "تزحلق/تزحلق",
+                    "en": "to ski; skid; slide/skiing"
+                  },
+                  {
+                    "ar": "تسوّق/تسوّق",
+                    "en": "to shop/shopping"
+                  },
+                  {
+                    "ar": "تمشّى/تمشّي",
+                    "en": "to take a walk/walking"
+                  },
+                  {
+                    "ar": "سافر/سفر",
+                    "en": "to travel/travelling"
+                  },
+                  {
+                    "ar": "سال/سؤال",
+                    "en": "to ask/asking"
+                  },
+                  {
+                    "ar": "سبح/سباحة",
+                    "en": "to swim/swimming"
+                  },
+                  {
+                    "ar": "وافق/موافقة",
+                    "en": "to agree/agreeing"
+                  },
+                  {
+                    "ar": "راقب/مراقبة",
+                    "en": "to watch/watching"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "id": "unit_3",
+            "name": "Unit 3",
+            "chapters": [
+              {
+                "id": "u3_c11",
+                "name": "Chapter 11 – A Typical Day at the DLI",
+                "vocab": [
+                  {
+                    "ar": "إجراء أمني/إجراءات",
+                    "en": "security measure(s)"
+                  },
+                  {
+                    "ar": "بوابة",
+                    "en": "gate"
+                  },
+                  {
+                    "ar": "الصراف الآلي",
+                    "en": "ATM"
+                  },
+                  {
+                    "ar": "كنيسة/كنائس",
+                    "en": "church(es)"
+                  },
+                  {
+                    "ar": "متجر العسكريين/متاجر",
+                    "en": "PX (military store)"
+                  },
+                  {
+                    "ar": "مركز خدمات/مراكز",
+                    "en": "service center(s)"
+                  },
+                  {
+                    "ar": "مركز الأنشطة/مراكز",
+                    "en": "activities center(s)"
+                  },
+                  {
+                    "ar": "مركز الترفيه/مراكز",
+                    "en": "recreation center(s)"
+                  },
+                  {
+                    "ar": "مركز رياضي/مراكز",
+                    "en": "sport center(s)"
+                  },
+                  {
+                    "ar": "مستوصف/مستوصفات",
+                    "en": "dispensary(ies)"
+                  },
+                  {
+                    "ar": "حاسوب/حواسيب",
+                    "en": "computer(s)"
+                  },
+                  {
+                    "ar": "ستارة/ستائر",
+                    "en": "curtain(s)"
+                  },
+                  {
+                    "ar": "سلة المهملات/سلات",
+                    "en": "wastebasket(s)"
+                  },
+                  {
+                    "ar": "شباك/شبابيك",
+                    "en": "window(s)"
+                  },
+                  {
+                    "ar": "طابعة/طابعات",
+                    "en": "printer(s)"
+                  },
+                  {
+                    "ar": "غلاية القهوة/غلايات",
+                    "en": "coffeemaker(s)"
+                  },
+                  {
+                    "ar": "لوحة المفاتيح/لوحات",
+                    "en": "light switch(es)"
+                  },
+                  {
+                    "ar": "مكنسة كهربائية/مكانس",
+                    "en": "vacuum cleaner(s)"
+                  },
+                  {
+                    "ar": "مكيف/مكيفات",
+                    "en": "air conditioner(s)"
+                  },
+                  {
+                    "ar": "وسيلة تعليمية/وسائل",
+                    "en": "visual aid(s)"
+                  },
+                  {
+                    "ar": "أوسع",
+                    "en": "larger/wider"
+                  },
+                  {
+                    "ar": "ضيق",
+                    "en": "narrow, confined"
+                  },
+                  {
+                    "ar": "غامق",
+                    "en": "dark"
+                  },
+                  {
+                    "ar": "قديم",
+                    "en": "old"
+                  },
+                  {
+                    "ar": "مريض/مرضى",
+                    "en": "sick person (people)"
+                  },
+                  {
+                    "ar": "ساخن",
+                    "en": "hot"
+                  },
+                  {
+                    "ar": "هادئ",
+                    "en": "quiet/serene"
+                  },
+                  {
+                    "ar": "إضاءة",
+                    "en": "light"
+                  },
+                  {
+                    "ar": "إطفاء",
+                    "en": "turning off (light), putting out (fire)"
+                  },
+                  {
+                    "ar": "اطمئنان",
+                    "en": "at peace"
+                  },
+                  {
+                    "ar": "عضو هيئة التدريس/أعضاء هيئة التدريس",
+                    "en": "faculty member(s)"
+                  },
+                  {
+                    "ar": "تعليمات",
+                    "en": "instructions"
+                  },
+                  {
+                    "ar": "راحة",
+                    "en": "relaxation, rest"
+                  },
+                  {
+                    "ar": "رسالة/رسائل إلكترونية",
+                    "en": "email(s)"
+                  },
+                  {
+                    "ar": "شغف",
+                    "en": "anxiousness"
+                  },
+                  {
+                    "ar": "طرد/طرود",
+                    "en": "parcel(s)"
+                  },
+                  {
+                    "ar": "عميد/عميدة",
+                    "en": "dean"
+                  },
+                  {
+                    "ar": "قدّاس",
+                    "en": "mass prayer"
+                  },
+                  {
+                    "ar": "لقاء/لقاءات",
+                    "en": "date(s), meeting(s)"
+                  },
+                  {
+                    "ar": "مساعد العميد/مساعدة العميد",
+                    "en": "assistant dean"
+                  },
+                  {
+                    "ar": "اتصل بـ/اتصال",
+                    "en": "to call, contact"
+                  },
+                  {
+                    "ar": "استلم/استلام",
+                    "en": "to receive"
+                  },
+                  {
+                    "ar": "استمر/استمرار",
+                    "en": "to keep on, continue"
+                  },
+                  {
+                    "ar": "استمع (للموسيقى)/استماع",
+                    "en": "to listen to (music)"
+                  },
+                  {
+                    "ar": "شاهد/مشاهدة",
+                    "en": "to watch"
+                  },
+                  {
+                    "ar": "غسل/غسل",
+                    "en": "to wash"
+                  },
+                  {
+                    "ar": "نظف/تنظيف",
+                    "en": "to clean"
+                  },
+                  {
+                    "ar": "نقل/نقل",
+                    "en": "to move (transfer)"
+                  },
+                  {
+                    "ar": "عرف/معرفة",
+                    "en": "to know"
+                  },
+                  {
+                    "ar": "تعرّف على/تعرّف",
+                    "en": "to become acquainted with"
+                  },
+                  {
+                    "ar": "عرّف/تعريف",
+                    "en": "to acquaint, introduce"
+                  },
+                  {
+                    "ar": "أغلق/إغلاق",
+                    "en": "to close, shut"
+                  }
+                ]
+              },
+              {
+                "id": "u3_c12",
+                "name": "Chapter 12 – Monterey and Surroundings",
+                "vocab": [
+                  {
+                    "ar": "معالم مونتيري",
+                    "en": "Monterey attractions"
+                  },
+                  {
+                    "ar": "أرض المعارض",
+                    "en": "fairground"
+                  },
+                  {
+                    "ar": "أحياء مائية",
+                    "en": "marine life"
+                  },
+                  {
+                    "ar": "بنايات تاريخية",
+                    "en": "historical buildings"
+                  },
+                  {
+                    "ar": "ملاعب الجولف",
+                    "en": "golf courses"
+                  },
+                  {
+                    "ar": "رصيف/أرصفة",
+                    "en": "curb(s)/wharf"
+                  },
+                  {
+                    "ar": "رصيف الصيادين",
+                    "en": "Fisherman’s Wharf"
+                  },
+                  {
+                    "ar": "سوق المزارعين",
+                    "en": "farmer’s market"
+                  },
+                  {
+                    "ar": "طبيعية",
+                    "en": "natural"
+                  },
+                  {
+                    "ar": "عصير/عصائر",
+                    "en": "juice(s)"
+                  },
+                  {
+                    "ar": "متحف الأحياء المائية",
+                    "en": "aquarium"
+                  },
+                  {
+                    "ar": "مرطبات",
+                    "en": "refreshments"
+                  },
+                  {
+                    "ar": "مركز/مراكز",
+                    "en": "center(s)"
+                  },
+                  {
+                    "ar": "مركز الاستعلامات",
+                    "en": "information center"
+                  },
+                  {
+                    "ar": "مركز الإسعاف",
+                    "en": "emergency center (medical)"
+                  },
+                  {
+                    "ar": "مركز الإطفاء",
+                    "en": "fire station"
+                  },
+                  {
+                    "ar": "مركز الشرطة",
+                    "en": "police station"
+                  },
+                  {
+                    "ar": "مركز الطوارئ",
+                    "en": "crisis center/emergency room"
+                  },
+                  {
+                    "ar": "مزارع/مزارعون",
+                    "en": "farmer(s)"
+                  },
+                  {
+                    "ar": "معالم",
+                    "en": "features/attractions"
+                  },
+                  {
+                    "ar": "ملتقى/ملتقيات",
+                    "en": "meeting place(s)"
+                  },
+                  {
+                    "ar": "ملتقى الأحبة",
+                    "en": "Lover’s Point"
+                  },
+                  {
+                    "ar": "فنار",
+                    "en": "lighthouse"
+                  },
+                  {
+                    "ar": "وسائل المواصلات وإعطاء الإرشادات",
+                    "en": "means of transportation & giving directions"
+                  },
+                  {
+                    "ar": "أدنى",
+                    "en": "minimum/nearest"
+                  },
+                  {
+                    "ar": "أقصى",
+                    "en": "maximum/farthest"
+                  },
+                  {
+                    "ar": "أدنى حد للسرعة",
+                    "en": "minimum speed limit"
+                  },
+                  {
+                    "ar": "أقصى حد للسرعة",
+                    "en": "maximum speed limit"
+                  },
+                  {
+                    "ar": "حافلة/حافلات",
+                    "en": "bus(es)"
+                  },
+                  {
+                    "ar": "حد/حدود",
+                    "en": "limit(s)"
+                  },
+                  {
+                    "ar": "دراجة/دراجات",
+                    "en": "bicycle(s)"
+                  },
+                  {
+                    "ar": "دراجة نارية",
+                    "en": "motorcycle"
+                  },
+                  {
+                    "ar": "دوران للخلف",
+                    "en": "a “U” turn/turning back"
+                  },
+                  {
+                    "ar": "سرعة/سرعات",
+                    "en": "speed(s)"
+                  },
+                  {
+                    "ar": "سكة حديدية/سكك",
+                    "en": "railroad(s)"
+                  },
+                  {
+                    "ar": "شاحنة/شاحنات",
+                    "en": "truck(s)"
+                  },
+                  {
+                    "ar": "علامات المرور",
+                    "en": "traffic signs"
+                  },
+                  {
+                    "ar": "قطار/قطارات",
+                    "en": "train(s)"
+                  },
+                  {
+                    "ar": "لافتة",
+                    "en": "sign"
+                  },
+                  {
+                    "ar": "مخرج",
+                    "en": "exit"
+                  },
+                  {
+                    "ar": "مرور",
+                    "en": "traffic/passing"
+                  },
+                  {
+                    "ar": "مغلق",
+                    "en": "closed"
+                  },
+                  {
+                    "ar": "مفترق",
+                    "en": "intersection"
+                  },
+                  {
+                    "ar": "ممنوع",
+                    "en": "prohibited/not allowed"
+                  },
+                  {
+                    "ar": "وسيلة/وسائل",
+                    "en": "means"
+                  },
+                  {
+                    "ar": "يسار",
+                    "en": "left (direction)"
+                  },
+                  {
+                    "ar": "يمين",
+                    "en": "right (direction)"
+                  },
+                  {
+                    "ar": "بطيء",
+                    "en": "slow"
+                  },
+                  {
+                    "ar": "رائع",
+                    "en": "wonderful/magnificent"
+                  },
+                  {
+                    "ar": "حوت/حيتان",
+                    "en": "whale(s)"
+                  },
+                  {
+                    "ar": "مدخل/مداخل",
+                    "en": "entrance(s)"
+                  },
+                  {
+                    "ar": "سيارة أجرة",
+                    "en": "taxi"
+                  },
+                  {
+                    "ar": "متأخر",
+                    "en": "late"
+                  },
+                  {
+                    "ar": "نصف",
+                    "en": "half"
+                  },
+                  {
+                    "ar": "استأجر/استئجار",
+                    "en": "to rent"
+                  },
+                  {
+                    "ar": "أبطأ/إبطاء",
+                    "en": "to slow down"
+                  },
+                  {
+                    "ar": "تبع/متابعة",
+                    "en": "to follow"
+                  },
+                  {
+                    "ar": "تعال/تعالي",
+                    "en": "to come (imperative) (m/f)"
+                  },
+                  {
+                    "ar": "دار/دوران",
+                    "en": "to turn/to circulate"
+                  },
+                  {
+                    "ar": "سار/سَيْر",
+                    "en": "to move along"
+                  },
+                  {
+                    "ar": "قاد/قيادة",
+                    "en": "to drive (a car)/ to lead (an army)"
+                  },
+                  {
+                    "ar": "غادر/مُغادرة",
+                    "en": "to leave/to depart"
+                  },
+                  {
+                    "ar": "لزم/لزوم",
+                    "en": "to stick with/to keep to/to stay at"
+                  },
+                  {
+                    "ar": "التقى/التقاء",
+                    "en": "to meet"
+                  },
+                  {
+                    "ar": "بطء",
+                    "en": "slowing down (masdar)"
+                  },
+                  {
+                    "ar": "قام/قيام",
+                    "en": "to depart/to rise"
+                  }
+                ]
+              },
+              {
+                "id": "u3_c13",
+                "name": "Chapter 13 – California & the United States",
+                "vocab": [
+                  {
+                    "ar": "مناخ",
+                    "en": "climate"
+                  },
+                  {
+                    "ar": "مناخ جاف",
+                    "en": "dry climate"
+                  },
+                  {
+                    "ar": "مناخ استوائي",
+                    "en": "tropical climate"
+                  },
+                  {
+                    "ar": "مناخ قارّي",
+                    "en": "continental climate"
+                  },
+                  {
+                    "ar": "معتدل",
+                    "en": "moderate"
+                  },
+                  {
+                    "ar": "مناخ رطب",
+                    "en": "humid climate"
+                  },
+                  {
+                    "ar": "البحر الأبيض المتوسط (مناخ)",
+                    "en": "Mediterranean (climate)"
+                  },
+                  {
+                    "ar": "سلسلة جبال/سلاسل جبلية",
+                    "en": "mountain range(s)"
+                  },
+                  {
+                    "ar": "سلسلة/سلاسل",
+                    "en": "chain(s)"
+                  },
+                  {
+                    "ar": "وادي/وديان/أودية",
+                    "en": "valley(s)"
+                  },
+                  {
+                    "ar": "سهل/سهول",
+                    "en": "plain(s)"
+                  },
+                  {
+                    "ar": "تل/تلال",
+                    "en": "hill(s)"
+                  },
+                  {
+                    "ar": "خريطة/خرائط",
+                    "en": "map(s)"
+                  },
+                  {
+                    "ar": "بوصلة/بوصلات",
+                    "en": "compass(es)"
+                  },
+                  {
+                    "ar": "إقليم/أقاليم",
+                    "en": "region(s)"
+                  },
+                  {
+                    "ar": "حد/حدود",
+                    "en": "border(s)"
+                  },
+                  {
+                    "ar": "منطقة/مناطق",
+                    "en": "area(s) or location(s)"
+                  },
+                  {
+                    "ar": "شلال/شلالات",
+                    "en": "waterfall(s)"
+                  },
+                  {
+                    "ar": "بركان/براكين",
+                    "en": "volcano(s)"
+                  },
+                  {
+                    "ar": "مساحة/مساحات",
+                    "en": "area(s)"
+                  },
+                  {
+                    "ar": "طبيعة خاصة",
+                    "en": "specific nature"
+                  },
+                  {
+                    "ar": "دولة/دول",
+                    "en": "country(ies)"
+                  },
+                  {
+                    "ar": "المناطق الزمنية",
+                    "en": "time zones"
+                  },
+                  {
+                    "ar": "فرق التوقيت/فروقات التوقيت",
+                    "en": "time difference(s)"
+                  },
+                  {
+                    "ar": "منطقة زمنية/مناطق زمنية",
+                    "en": "time zone(s)"
+                  },
+                  {
+                    "ar": "توقيت الساحل الشرقي",
+                    "en": "Eastern Time Zone"
+                  },
+                  {
+                    "ar": "توقيت الساحل الغربي",
+                    "en": "Pacific Time Zone"
+                  },
+                  {
+                    "ar": "توقيت وسط أمريكا",
+                    "en": "Central Time Zone"
+                  },
+                  {
+                    "ar": "توقيت المنطقة الجبلية",
+                    "en": "Mountain Time Zone"
+                  },
+                  {
+                    "ar": "معالم سياحية",
+                    "en": "attractions"
+                  },
+                  {
+                    "ar": "الوادي العظيم",
+                    "en": "Grand Canyon"
+                  },
+                  {
+                    "ar": "سجن ألكتراز",
+                    "en": "Alcatraz Prison"
+                  },
+                  {
+                    "ar": "تمثال الحرية",
+                    "en": "Statue of Liberty"
+                  },
+                  {
+                    "ar": "عالم البحار",
+                    "en": "Sea World"
+                  },
+                  {
+                    "ar": "ناطحة السحاب/ناطحات السحاب",
+                    "en": "skyscraper(s)"
+                  },
+                  {
+                    "ar": "نصب تذكاري/نصب تذكارية",
+                    "en": "monument(s)"
+                  },
+                  {
+                    "ar": "عملة رسمية",
+                    "en": "official currency"
+                  },
+                  {
+                    "ar": "استقلال",
+                    "en": "independence"
+                  },
+                  {
+                    "ar": "جسر",
+                    "en": "bridge"
+                  },
+                  {
+                    "ar": "أوسط",
+                    "en": "middle"
+                  },
+                  {
+                    "ar": "برج/أبراج",
+                    "en": "tower(s)"
+                  },
+                  {
+                    "ar": "تعداد",
+                    "en": "population"
+                  },
+                  {
+                    "ar": "رسمي/رسمية",
+                    "en": "official (m-f)"
+                  },
+                  {
+                    "ar": "قوس/أقواس",
+                    "en": "arch(es)"
+                  },
+                  {
+                    "ar": "نسمة",
+                    "en": "person (in a census)"
+                  },
+                  {
+                    "ar": "نهر/أنهار",
+                    "en": "river(s)"
+                  },
+                  {
+                    "ar": "مقاطعة",
+                    "en": "district"
+                  },
+                  {
+                    "ar": "امتدّ/امتداد",
+                    "en": "to stretch/stretching"
+                  },
+                  {
+                    "ar": "حدّ/حدّ",
+                    "en": "to border/bordering"
+                  }
+                ]
+              },
+              {
+                "id": "u3_c14",
+                "name": "Chapter 14 – Arab-Americans",
+                "vocab": [
+                  {
+                    "ar": "العرب الأمريكيون",
+                    "en": "Arab-Americans"
+                  },
+                  {
+                    "ar": "إقامة",
+                    "en": "residence"
+                  },
+                  {
+                    "ar": "أصل",
+                    "en": "origin"
+                  },
+                  {
+                    "ar": "إقامة دائمة",
+                    "en": "permanent residence"
+                  },
+                  {
+                    "ar": "إقامة مؤقتة",
+                    "en": "temporary residence"
+                  },
+                  {
+                    "ar": "أقلية",
+                    "en": "minority"
+                  },
+                  {
+                    "ar": "أكثرية",
+                    "en": "majority"
+                  },
+                  {
+                    "ar": "أهل/أهالي",
+                    "en": "relative(s)"
+                  },
+                  {
+                    "ar": "تجمع/تجمعات",
+                    "en": "concentration(s)"
+                  },
+                  {
+                    "ar": "جالية",
+                    "en": "community(ies)"
+                  },
+                  {
+                    "ar": "شعب/شعوب",
+                    "en": "people(s) (nation)"
+                  },
+                  {
+                    "ar": "عمل حرّ/أعمال حرّة",
+                    "en": "small business(es)/self-employed"
+                  },
+                  {
+                    "ar": "غربة",
+                    "en": "away from home/homesick"
+                  },
+                  {
+                    "ar": "فرد/أفراد",
+                    "en": "individual(s)"
+                  },
+                  {
+                    "ar": "مواطن",
+                    "en": "citizen(s)"
+                  },
+                  {
+                    "ar": "وطن/أوطان",
+                    "en": "homeland(s)"
+                  },
+                  {
+                    "ar": "وسائل الإعلام العربية",
+                    "en": "Arab media"
+                  },
+                  {
+                    "ar": "إعلام",
+                    "en": "media"
+                  },
+                  {
+                    "ar": "إعلان",
+                    "en": "advertisement/announcement"
+                  },
+                  {
+                    "ar": "بث مباشر",
+                    "en": "live broadcast"
+                  },
+                  {
+                    "ar": "جريدة/جرائد",
+                    "en": "newspaper(s)"
+                  },
+                  {
+                    "ar": "حقيبة/حقائب",
+                    "en": "bag(s)"
+                  },
+                  {
+                    "ar": "قناة فضائية",
+                    "en": "satellite channel"
+                  },
+                  {
+                    "ar": "قناة/قنوات",
+                    "en": "channel(s)"
+                  },
+                  {
+                    "ar": "مجلة/مجلات",
+                    "en": "magazine(s)"
+                  },
+                  {
+                    "ar": "نشرة أخبار",
+                    "en": "newscast"
+                  },
+                  {
+                    "ar": "وسائل إعلام",
+                    "en": "mass media"
+                  },
+                  {
+                    "ar": "انتخابات",
+                    "en": "election"
+                  },
+                  {
+                    "ar": "إمام/أئمة",
+                    "en": "prayer leader/Imam(s)"
+                  },
+                  {
+                    "ar": "بقال",
+                    "en": "grocer"
+                  },
+                  {
+                    "ar": "جزّار/جزارة (محل)",
+                    "en": "butcher/(shop)"
+                  },
+                  {
+                    "ar": "حلال",
+                    "en": "allowed, ritually fit"
+                  },
+                  {
+                    "ar": "فول مدمس",
+                    "en": "fava beans"
+                  },
+                  {
+                    "ar": "مخبز/مخابز",
+                    "en": "bakery(ies)"
+                  },
+                  {
+                    "ar": "مدة/مدد",
+                    "en": "period(s)"
+                  },
+                  {
+                    "ar": "أحضر/إحضار",
+                    "en": "to bring"
+                  },
+                  {
+                    "ar": "أصبح/إصباح",
+                    "en": "to become"
+                  },
+                  {
+                    "ar": "أقام/إقامة",
+                    "en": "to reside/to stay"
+                  },
+                  {
+                    "ar": "تعادل/تعادل",
+                    "en": "to tie (sports)"
+                  },
+                  {
+                    "ar": "تعاون/تعاون",
+                    "en": "to cooperate"
+                  },
+                  {
+                    "ar": "ساعد/مساعدة",
+                    "en": "to assist/to help"
+                  },
+                  {
+                    "ar": "شعر/شعور",
+                    "en": "to feel"
+                  },
+                  {
+                    "ar": "قابل/مقابلة",
+                    "en": "to meet"
+                  },
+                  {
+                    "ar": "هاجر/هجرة",
+                    "en": "to emigrate/immigrate"
+                  }
+                ]
+              },
+              {
+                "id": "u3_c15",
+                "name": "Chapter 15 – Arab-Americans II",
+                "vocab": [
+                  {
+                    "ar": "إدارة",
+                    "en": "administration (management)"
+                  },
+                  {
+                    "ar": "إدارة أعمال",
+                    "en": "business administration"
+                  },
+                  {
+                    "ar": "رئيس/رؤساء",
+                    "en": "president(s)/boss(es)/head(s) of dept(s)"
+                  },
+                  {
+                    "ar": "شاعر/شعراء",
+                    "en": "poet(s)"
+                  },
+                  {
+                    "ar": "كاتب/كتاب",
+                    "en": "writer(s)"
+                  },
+                  {
+                    "ar": "مخرج",
+                    "en": "director(s)"
+                  },
+                  {
+                    "ar": "مغنٍ/مغنية",
+                    "en": "singer (m-f)"
+                  },
+                  {
+                    "ar": "ممثل",
+                    "en": "actor"
+                  },
+                  {
+                    "ar": "منصب/مناصب",
+                    "en": "position(s)/job(s)"
+                  },
+                  {
+                    "ar": "مجتمع",
+                    "en": "society"
+                  },
+                  {
+                    "ar": "تقاليـد",
+                    "en": "tradition(s)"
+                  },
+                  {
+                    "ar": "جيل/أجيال",
+                    "en": "generation(s)"
+                  },
+                  {
+                    "ar": "عادات",
+                    "en": "custom(s)"
+                  },
+                  {
+                    "ar": "عضو/أعضاء",
+                    "en": "member(s)"
+                  },
+                  {
+                    "ar": "ناد/نوادٍ",
+                    "en": "club(s)"
+                  },
+                  {
+                    "ar": "جائزة/جوائز",
+                    "en": "prize(s)/award(s)"
+                  },
+                  {
+                    "ar": "دينية",
+                    "en": "religious"
+                  },
+                  {
+                    "ar": "مناسبة/مناسبات",
+                    "en": "occasion(s)"
+                  },
+                  {
+                    "ar": "مهتمّ بـ",
+                    "en": "concerned with/interested in"
+                  },
+                  {
+                    "ar": "مهمّ",
+                    "en": "important"
+                  },
+                  {
+                    "ar": "نبي/أنبياء",
+                    "en": "prophet(s)"
+                  },
+                  {
+                    "ar": "وفاة",
+                    "en": "death"
+                  },
+                  {
+                    "ar": "أخرج/إخراج",
+                    "en": "to direct (a movie)"
+                  },
+                  {
+                    "ar": "استقرّ/استقرار",
+                    "en": "to settle"
+                  },
+                  {
+                    "ar": "أكمل/إكمال",
+                    "en": "to complete"
+                  },
+                  {
+                    "ar": "أنتج/إنتاج",
+                    "en": "to produce"
+                  },
+                  {
+                    "ar": "اندماج/اندماج",
+                    "en": "to be assimilated/to blend in"
+                  },
+                  {
+                    "ar": "اهتمّ ب/اهتمام",
+                    "en": "to pay attention to/to be concerned with"
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+]
