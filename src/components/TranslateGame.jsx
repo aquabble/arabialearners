@@ -1,51 +1,60 @@
 
-import React, { useEffect, useRef, useState, useMemo } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 
-// Detect Arabic script to auto-pick which side is AR vs EN if the API doesn't label it.
 const ARABIC_REGEX = /[\u0600-\u06FF]/
 
+function clean(v){ return (typeof v === 'string') ? v.trim() : '' }
+
 function pickDisplayAndPair(item, direction){
-  // Normalize a bunch of possible field names coming from the backend
-  const c = (v)=> (typeof v === 'string' ? v.trim() : '')
   const f = {
-    prompt: c(item?.prompt),
-    answer: c(item?.answer),
-    ar: c(item?.ar),
-    en: c(item?.en),
-    vocabAr: c(item?.vocabAr),
-    vocabEn: c(item?.vocabEn),
-    arSentence: c(item?.arSentence || item?.sentenceAr || item?.fullAr || item?.text_ar),
-    enSentence: c(item?.enSentence || item?.sentenceEn || item?.fullEn || item?.text_en),
-    promptAr: c(item?.promptAr),
-    promptEn: c(item?.promptEn),
-    answerAr: c(item?.answerAr),
-    answerEn: c(item?.answerEn),
+    prompt: clean(item?.prompt),
+    answer: clean(item?.answer),
+    ar: clean(item?.ar),
+    en: clean(item?.en),
+    vocabAr: clean(item?.vocabAr),
+    vocabEn: clean(item?.vocabEn),
+    arSentence: clean(item?.arSentence || item?.sentenceAr || item?.fullAr || item?.text_ar),
+    enSentence: clean(item?.enSentence || item?.sentenceEn || item?.fullEn || item?.text_en),
+    promptAr: clean(item?.promptAr),
+    promptEn: clean(item?.promptEn),
+    answerAr: clean(item?.answerAr),
+    answerEn: clean(item?.answerEn),
   }
 
-  // Choose the AR and EN sides of the SAME pair.
-  // Priority 1: explicit pairs (promptAr/promptEn + answerAr/answerEn)
   if (direction === 'ar2en'){
-    // We need: display Arabic sentence, expected English
-    const disp = c(f.promptAr) || c(f.arSentence) || (ARABIC_REGEX.test(f.prompt) ? f.prompt : (ARABIC_REGEX.test(f.answer) ? f.answer : f.prompt))
-    // Expected EN: answerEn | enSentence | the non-Arabic of (prompt/answer)
-    let exp = c(f.answerEn) || c(f.enSentence)
-    if (!exp){
-      const p = f.prompt, a = f.answer
-      if (!ARABIC_REGEX.test(p) && !ARABIC_REGEX.test(a)) {
-        # neither is Arabic; fallback to non-Arabic among ar/en or enSentence
-        
-      exp = (!ARABIC_REGEX.test(a) ? a : (!ARABIC_REGEX.test(p) ? p : ''))
-    }
-    return { display: disp, expectedAr: disp, expectedEn: exp }
+    // Display Arabic; expect English
+    const display =
+      f.promptAr ||
+      f.arSentence ||
+      (ARABIC_REGEX.test(f.prompt) ? f.prompt : (ARABIC_REGEX.test(f.answer) ? f.answer : f.ar)) ||
+      ''
+
+    const expectedEn =
+      f.answerEn ||
+      f.enSentence ||
+      (!ARABIC_REGEX.test(f.answer) ? f.answer :
+        (!ARABIC_REGEX.test(f.prompt) ? f.prompt : (f.en || f.vocabEn))) ||
+      ''
+
+    const expectedAr = display
+    return { display, expectedAr, expectedEn }
   } else {
-    // en2ar: display English sentence, expected Arabic
-    const disp = c(f.promptEn) || c(f.enSentence) || (!ARABIC_REGEX.test(f.prompt) ? f.prompt : (!ARABIC_REGEX.test(f.answer) ? f.answer : f.prompt))
-    let exp = c(f.answerAr) || c(f.arSentence)
-    if (!exp){
-      const p = f.prompt, a = f.answer
-      exp = (ARABIC_REGEX.test(a) ? a : (ARABIC_REGEX.test(p) ? p : ''))
-    }
-    return { display: disp, expectedAr: exp, expectedEn: disp }
+    // en2ar: Display English; expect Arabic
+    const display =
+      f.promptEn ||
+      f.enSentence ||
+      (!ARABIC_REGEX.test(f.prompt) ? f.prompt : (!ARABIC_REGEX.test(f.answer) ? f.answer : f.en)) ||
+      ''
+
+    const expectedAr =
+      f.answerAr ||
+      f.arSentence ||
+      (ARABIC_REGEX.test(f.answer) ? f.answer :
+        (ARABIC_REGEX.test(f.prompt) ? f.prompt : (f.ar || f.vocabAr))) ||
+      ''
+
+    const expectedEn = display
+    return { display, expectedAr, expectedEn }
   }
 }
 
@@ -58,15 +67,13 @@ export default function TranslateGame({ API_BASE = '' , direction = 'ar2en' }){
 
   const queuesRef = useRef(new Map())
 
-  // The actual sentence pair for the current card
-  const [displayPrompt, setDisplayPrompt] = useState('')  // what the user sees and must translate
-  const [expectedAr, setExpectedAr] = useState('')        // normalized Arabic sentence for grading
-  const [expectedEn, setExpectedEn] = useState('')        // normalized English sentence for grading
+  const [displayPrompt, setDisplayPrompt] = useState('')
+  const [expectedAr, setExpectedAr] = useState('')
+  const [expectedEn, setExpectedEn] = useState('')
 
-  // Lexemes / modifiers
   const [vocabAr, setVocabAr] = useState('')
   const [vocabEn, setVocabEn] = useState('')
-  const [modifiers, setModifiers] = useState([])    // modifiers/tokens/tags shown under prompt
+  const [modifiers, setModifiers] = useState([])
 
   const placeholder = direction === 'ar2en' ? 'Type the English meaning…' : 'اكتب الجواب بالعربية…'
 
@@ -117,8 +124,8 @@ export default function TranslateGame({ API_BASE = '' , direction = 'ar2en' }){
   async function check(){
     setFeedback(null)
     try{
-      const referenceAr = (direction === 'ar2en') ? expectedAr : expectedAr   // always Arabic
-      const referenceEn = (direction === 'ar2en') ? expectedEn : expectedEn   // always English
+      const referenceAr = expectedAr
+      const referenceEn = expectedEn
 
       if (!referenceAr && !referenceEn){
         setFeedback({ verdict:'wrong', hint:'No reference pair available to grade. Check API fields.' })
@@ -137,7 +144,6 @@ export default function TranslateGame({ API_BASE = '' , direction = 'ar2en' }){
     }
   }
 
-  // Reload a card when direction changes
   useEffect(()=>{ showNext() }, [direction])
 
   return (
