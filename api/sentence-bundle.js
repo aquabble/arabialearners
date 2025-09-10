@@ -1,98 +1,192 @@
-export const config = { runtime: "nodejs" }
-import { createRequire } from 'module'
-const require = createRequire(import.meta.url)
-const { loadGlossary } = require('./_lib.cjs')
+export const config = { runtime: "nodejs" };
 
-function rand(max){ return Math.floor(Math.random()*max) }
-function choice(arr){ return arr[rand(arr.length)] }
-function shuffle(a){ const b=a.slice(); for(let i=b.length-1;i>0;i--){ const j=rand(i+1); [b[i],b[j]]=[b[j],b[i]] } return b }
+import { createRequire } from "module";
+const require = createRequire(import.meta.url);
+const { loadGlossary } = require("./_lib.cjs");
 
-const LEX = {
-  people_ar: ['الطالب','الطالبة','المعلم','المعلمة','الجندي','الضابط','الطبيب','الممرضة','أمي','أبي','أختي','أخي','صديقي','صديقتي','جارتي','مديري','الموظف','المدرب','السائح','السائقة'],
-  people_en: ['the student','the female student','the teacher','the female teacher','the soldier','the officer','the doctor','the nurse','my mother','my father','my sister','my brother','my friend','my (female) friend','my (female) neighbor','my manager','the employee','the coach','the tourist','the driver'],
-  verbs_past_ar: ['ذهب','اشترى','قرأ','كتب','شاهد','زار','قابل','أعدّ','درس','عمل','تدرّب','ركض','أكل','شرب','نام','سافر','عاد','تحدّث','اتصل','فاز'],
-  verbs_past_en: ['went','bought','read','wrote','watched','visited','met','prepared','studied','worked','trained','ran','ate','drank','slept','traveled','returned','spoke','called','won'],
-  places_ar: ['إلى المدرسة','إلى المكتبة','إلى العمل','إلى المستشفى','إلى السوق','إلى الشاطئ','إلى الحديقة','إلى المطار','في البيت','في المطعم','في الصف','في المسجد','إلى الفندق','إلى القاعدة','إلى المتحف'],
-  places_en: ['to the school','to the library','to work','to the hospital','to the market','to the beach','to the park','to the airport','at home','at the restaurant','in class','at the mosque','to the hotel','to the base','to the museum'],
-  objects_ar: ['القهوة','الكتاب','الطعام','الماء','السيارة','الهاتف','الحقيبة','الفطور','الغداء','العشاء','التذكرة','الرسالة','الهدية'],
-  objects_en: ['coffee','the book','the food','water','the car','the phone','the bag','breakfast','lunch','dinner','the ticket','the letter','the gift'],
-  times_ar: ['صباحًا','مساءً','ليلاً','بعد الظهر','أمس','اليوم','غدًا','في الساعة السابعة','قريبًا','مبكرًا','متأخرًا'],
-  times_en: ['in the morning','in the evening','at night','in the afternoon','yesterday','today','tomorrow','at seven o’clock','soon','early','late'],
-  connectors_ar: ['ثم','ولكن','وأخيرًا','لأن','بعد أن','وبعد ذلك','وبينما'],
-  connectors_en: ['then','but','finally','because','after','and after that','while'],
+let OpenAI = null;
+try {
+  // optional import (keeps function working in dev even if dep missing)
+  OpenAI = (await import("openai")).default;
+} catch {}
+
+/** ---------- helpers ---------- **/
+function rand(n) { return Math.floor(Math.random() * n); }
+function choice(a) { return a[rand(a.length)]; }
+function noStore(res) {
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Cache-Control", "no-store");
+}
+function scopeFromBody(gloss, scope = {}) {
+  const sem = (gloss?.semesters || []).find(s => !scope.semester || s.id === scope.semester)
+           || (gloss?.semesters || [])[0];
+  const unit = (sem?.units || []).find(u => !scope.unit || u.id === scope.unit)
+            || (sem?.units || [])[0];
+  const chap = (unit?.chapters || []).find(c => !scope.chapter || c.id === scope.chapter)
+            || (unit?.chapters || [])[0];
+  const vocab = (chap?.vocab || []).filter(v => v?.ar && v?.en);
+  return {
+    used: { semester: sem?.id, unit: unit?.id, chapter: chap?.id },
+    vocab
+  };
 }
 
-function dirMap(ar, en, direction){ return direction==='ar2en' ? {src:ar,tgt:en}:{src:en,tgt:ar} }
+/** A simple local fallback if OpenAI is not available */
+function localFallback({ direction = "ar2en", difficulty = "medium", vocab = [] }) {
+  const people = [
+    { ar: "الطالب", en: "the student" }, { ar: "الطالبة", en: "the female student" },
+    { ar: "المعلم", en: "the teacher" }, { ar: "المعلمة", en: "the female teacher" },
+    { ar: "أحمد", en: "Ahmed" }, { ar: "سارة", en: "Sarah" }
+  ];
+  const toPlaces = [
+    { ar: "إلى المدرسة", en: "to the school" }, { ar: "إلى المكتبة", en: "to the library" },
+    { ar: "إلى المتحف", en: "to the museum" }, { ar: "إلى السوق", en: "to the market" }
+  ];
+  const atPlaces = [
+    { ar: "في البيت", en: "at home" }, { ar: "في المطعم", en: "at the restaurant" },
+    { ar: "في الصف", en: "in class" }, { ar: "في الحديقة", en: "at the park" }
+  ];
+  const times = [
+    { ar: "صباحًا", en: "in the morning" }, { ar: "مساءً", en: "in the evening" },
+    { ar: "بعد الظهر", en: "in the afternoon" }, { ar: "اليوم", en: "today" }
+  ];
+  const want = difficulty === "short" ? 1 : difficulty === "hard" ? 3 : 2;
+  const picked = vocab.slice(0); // shallow copy
+  const must = picked.length ? choice(picked) : null;
 
-function extractChapterVocab(gloss, scope){
-  const sem = (gloss?.semesters||[]).find(s => !scope?.semester || s.id === scope.semester) || (gloss?.semesters||[])[0]
-  const unit = (sem?.units||[]).find(u => !scope?.unit || u.id === scope.unit) || (sem?.units||[])[0]
-  const chap = (unit?.chapters||[]).find(c => !scope?.chapter || c.id === scope.chapter) || (unit?.chapters||[])[0]
-  const vocab = (chap?.vocab || []).filter(v => v?.ar && v?.en)
-  return { vocab, used: { semester: sem?.id, unit: unit?.id, chapter: chap?.id } }
-}
-
-function buildSentence({ direction='ar2en', difficulty='medium', vocab=[] }){
-  const dm_people = dirMap(LEX.people_ar, LEX.people_en, direction)
-  const dm_verbs  = dirMap(LEX.verbs_past_ar, LEX.verbs_past_en, direction)
-  const dm_places = dirMap(LEX.places_ar, LEX.places_en, direction)
-  const dm_objs   = dirMap(LEX.objects_ar, LEX.objects_en, direction)
-  const dm_times  = dirMap(LEX.times_ar, LEX.times_en, direction)
-  const dm_conn   = dirMap(LEX.connectors_ar, LEX.connectors_en, direction)
-
-  const target = difficulty==='short' ? [4,7,1] : difficulty==='hard' ? [8,14,3] : [6,8,2]
-  const [minLen, maxLen, wantVocab] = target
-
-  const srcVocab = vocab.length ? vocab.map(v => direction==='ar2en' ? v.ar : v.en) : []
-  const picked = shuffle(srcVocab).slice(0, Math.min(wantVocab, srcVocab.length))
-
-  const templates = [
-    () => [ choice(dm_people.src), choice(dm_verbs.src), choice(dm_places.src), choice(dm_times.src) ],
-    () => [ choice(dm_people.src), choice(dm_verbs.src), choice(dm_objs.src),   choice(dm_times.src) ],
-    () => [ choice(dm_times.src),  choice(dm_people.src), choice(dm_verbs.src), choice(dm_places.src) ],
-    () => [ choice(dm_people.src), choice(dm_verbs.src), choice(dm_places.src), choice(dm_conn.src), choice(dm_people.src), choice(dm_verbs.src) ],
-  ]
-
-  let words = templates[rand(templates.length)]()
-
-  for(const tok of picked){
-    if (!words.includes(tok)) words.splice(Math.min(2, words.length), 0, tok)
+  // motion frame or stative frame randomly
+  const subj = choice(people);
+  let ar, en;
+  if (Math.random() < 0.5) {
+    const place = choice(toPlaces);
+    ar = `${subj.ar} ذهب ${place.ar} ${choice(times).ar}`.trim();
+    en = `${subj.en[0].toUpperCase() + subj.en.slice(1)} went ${place.en} ${choice(times).en}`.trim();
+  } else {
+    const place = choice(atPlaces);
+    ar = `${subj.ar} قرأ كتابًا ${place.ar} ${choice(times).ar}`.trim();
+    en = `${subj.en[0].toUpperCase() + subj.en.slice(1)} read a book ${place.en} ${choice(times).en}`.trim();
   }
 
-  const count = () => words.join(' ').trim().split(/\s+/).length
-  while (count() < minLen) words.push(choice([choice(dm_places.src), choice(dm_times.src), choice(dm_objs.src)]))
-  while (count() > maxLen) words.pop()
-
-  const srcToTgt = (src, tgt, w) => { const i = src.indexOf(w); return i>=0 ? tgt[i] : null }
-  function translateToken(w){
-    return srcToTgt(dm_people.src, dm_people.tgt, w) ||
-           srcToTgt(dm_verbs.src,  dm_verbs.tgt,  w) ||
-           srcToTgt(dm_places.src, dm_places.tgt, w) ||
-           srcToTgt(dm_objs.src,   dm_objs.tgt,   w) ||
-           srcToTgt(dm_times.src,  dm_times.tgt,  w) ||
-           srcToTgt(dm_conn.src,   dm_conn.tgt,   w) ||
-           (srcVocab.includes(w) ? (vocab[srcVocab.indexOf(w)][direction==='ar2en'?'en':'ar']) : w)
+  if (direction === "ar2en") {
+    return { prompt: ar, answer: en, tokens: must ? [must.ar] : [] };
+  } else {
+    return { prompt: en, answer: ar, tokens: must ? [must.en] : [] };
   }
-
-  const prompt = words.join(' ')
-  const answer = words.map(translateToken).join(' ')
-  const tokens = picked.length ? picked : shuffle(words).slice(0,2)
-  return { prompt, answer, tokens }
 }
 
+/** ---------- OpenAI-powered generator ---------- **/
+async function generateWithOpenAI({ direction, difficulty, scopedVocab, model = "gpt-4o-mini" }) {
+  if (!OpenAI || !process.env.OPENAI_API_KEY) {
+    return { usedFallback: true, ...localFallback({ direction, difficulty, vocab: scopedVocab }) };
+  }
+
+  const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+
+  // difficulty → constraints
+  const diffRules = {
+    short:  { min: 4, max: 7,  minGloss: 1, hint: "simple clause" },
+    medium: { min: 6, max: 8,  minGloss: 2, hint: "one informative clause" },
+    hard:   { min: 8, max: 14, minGloss: 3, hint: "two related clauses with a connector like ثم/ولكن" }
+  }[difficulty] || { min: 6, max: 8, minGloss: 2, hint: "one informative clause" };
+
+  // pass a small list of target tokens the model should include (Arabic forms only)
+  const arTokens = scopedVocab.map(v => v.ar);
+  const enTokens = scopedVocab.map(v => v.en);
+
+  const response = await client.chat.completions.create({
+    model,
+    temperature: 0.7,
+    max_tokens: 180,
+    // Ask the model to return strict JSON
+    response_format: { type: "json_object" },
+    messages: [
+      {
+        role: "system",
+        content:
+`You generate natural Arabic/English practice sentences for DLI-style learners.
+Return ONLY a compact JSON object with:
+{ "prompt": string, "answer": string, "tokens": string[] }.
+- If direction="ar2en": "prompt" MUST be Arabic and "answer" MUST be English.
+- If direction="en2ar": "prompt" MUST be English and "answer" MUST be Arabic.
+- Make the sentence meaningful and grammatical (no "ذهب في ..."). Use "إلى" for motion destinations; use "في" for stative locations.
+- Length target: between MIN_WORDS and MAX_WORDS words in the PROMPT language.
+- Include at least MIN_GLOSSARY tokens (from 'glossaryTokens') in the PROMPT language; keep them intact (no inflection if that would change spelling).
+- Avoid repeating the same template. Vary verbs, places, objects, time adverbials, and connectors according to the hint.`.replace("MIN_WORDS","").replace("MAX_WORDS","").replace("MIN_GLOSSARY","")
+      },
+      {
+        role: "user",
+        content: JSON.stringify({
+          direction,
+          difficulty,
+          constraints: {
+            minWords: diffRules.min,
+            maxWords: diffRules.max,
+            minGlossary: diffRules.minGloss,
+            hint: diffRules.hint
+          },
+          // The model must pick tokens in the prompt language
+          glossaryTokens: direction === "ar2en" ? arTokens : enTokens,
+          examples: {
+            // a couple of “style anchors” (not to be copied verbatim)
+            ar2en: [
+              { prompt: "قابلَ أحمد صديقَه في الحديقة مساءً.", answer: "Ahmed met his friend in the park in the evening." },
+              { prompt: "ذهبتِ الطالبة إلى المكتبة بعد الظهر.", answer: "The female student went to the library in the afternoon." }
+            ],
+            en2ar: [
+              { prompt: "The officer visited the museum yesterday.", answer: "زار الضابط المتحف أمس." },
+              { prompt: "My sister drank tea at home in the evening.", answer: "شربت أختي الشاي في البيت مساءً." }
+            ]
+          }
+        })
+      }
+    ]
+  });
+
+  let obj;
+  try {
+    obj = JSON.parse(response.choices[0]?.message?.content || "{}");
+  } catch {
+    return { usedFallback: true, ...localFallback({ direction, difficulty, vocab: scopedVocab }) };
+  }
+
+  // Basic validation / trimming
+  const promptTxt = String(obj.prompt || "").trim();
+  const answerTxt = String(obj.answer || "").trim();
+  const tokens = Array.isArray(obj.tokens) ? obj.tokens.slice(0, 6) : [];
+
+  if (!promptTxt || !answerTxt) {
+    return { usedFallback: true, ...localFallback({ direction, difficulty, vocab: scopedVocab }) };
+  }
+
+  return { prompt: promptTxt, answer: answerTxt, tokens, usedFallback: false };
+}
+
+/** ---------- Route ---------- **/
 export default async (req, res) => {
-  res.setHeader('Access-Control-Allow-Origin','*')
-  res.setHeader('Cache-Control','no-store')
-  try{
-    const body = await new Promise(r=>{ let b=''; req.on('data', c=> b+=c); req.on('end', ()=> r(b||'{}')) })
-    const { direction='ar2en', difficulty='medium', scope={} } = JSON.parse(body||'{}')
+  noStore(res);
+  try {
+    const body = await new Promise(resolve => {
+      let b = ""; req.on("data", c => b += c); req.on("end", () => resolve(b || "{}"));
+    });
+    const { direction = "ar2en", difficulty = "medium", scope = {} } = JSON.parse(body || "{}");
 
-    const gloss = loadGlossary()
-    const { vocab, used } = extractChapterVocab(gloss, scope)
+    const gloss = loadGlossary();
+    const { vocab: scopedVocab, used } = scopeFromBody(gloss, scope);
 
-    const built = buildSentence({ direction, difficulty, vocab })
-    return res.status(200).json({ ok:true, version:'sb-2025-09-10c', direction, difficulty, scopeUsed: used, ...built })
-  }catch(e){
-    return res.status(500).json({ ok:false, error:String(e?.message||e) })
+    const out = await generateWithOpenAI({ direction, difficulty, scopedVocab });
+
+    return res.status(200).json({
+      ok: true,
+      provider: out.usedFallback ? "local-fallback" : "openai",
+      version: "sb-openai-2025-09-10",
+      direction,
+      difficulty,
+      scopeUsed: used,
+      prompt: out.prompt,
+      answer: out.answer,
+      tokens: out.tokens
+    });
+  } catch (e) {
+    return res.status(500).json({ ok: false, error: String(e?.message || e) });
   }
-}
+};
