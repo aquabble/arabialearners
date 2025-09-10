@@ -2,8 +2,26 @@
 import React, { useEffect, useRef, useState } from 'react'
 
 const ARABIC_REGEX = /[\u0600-\u06FF]/
+const clean = v => (typeof v === 'string' ? v.trim() : '')
 
-function clean(v){ return (typeof v === 'string') ? v.trim() : '' }
+async function fetchBundle(API_BASE, payload){
+  // Try POST first (many APIs require POST), then fall back to GET
+  const url = `${API_BASE}/api/sentence-bundle`
+  try{
+    const r = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload || {})
+    })
+    if (r.status === 405) throw new Error('POST not allowed, try GET')
+    if (!r.ok) throw new Error(`POST failed: ${r.status}`)
+    return await r.json()
+  }catch(_){
+    const r2 = await fetch(url) // GET
+    if (!r2.ok) throw new Error(`GET failed: ${r2.status}`)
+    return await r2.json()
+  }
+}
 
 function pickDisplayAndPair(item, direction){
   const f = {
@@ -22,55 +40,47 @@ function pickDisplayAndPair(item, direction){
   }
 
   if (direction === 'ar2en'){
-    // Display Arabic; expect English
     const display =
       f.promptAr ||
       f.arSentence ||
       (ARABIC_REGEX.test(f.prompt) ? f.prompt : (ARABIC_REGEX.test(f.answer) ? f.answer : f.ar)) ||
       ''
-
     const expectedEn =
       f.answerEn ||
       f.enSentence ||
       (!ARABIC_REGEX.test(f.answer) ? f.answer :
         (!ARABIC_REGEX.test(f.prompt) ? f.prompt : (f.en || f.vocabEn))) ||
       ''
-
     const expectedAr = display
     return { display, expectedAr, expectedEn }
   } else {
-    // en2ar: Display English; expect Arabic
     const display =
       f.promptEn ||
       f.enSentence ||
       (!ARABIC_REGEX.test(f.prompt) ? f.prompt : (!ARABIC_REGEX.test(f.answer) ? f.answer : f.en)) ||
       ''
-
     const expectedAr =
       f.answerAr ||
       f.arSentence ||
       (ARABIC_REGEX.test(f.answer) ? f.answer :
         (ARABIC_REGEX.test(f.prompt) ? f.prompt : (f.ar || f.vocabAr))) ||
       ''
-
     const expectedEn = display
     return { display, expectedAr, expectedEn }
   }
 }
 
-export default function TranslateGame({ API_BASE = '' , direction = 'ar2en' }){
+export default function TranslateGame({ API_BASE = '' , direction = 'ar2en', difficulty = 'medium' }){
   const [loading, setLoading] = useState(false)
   const [err, setErr] = useState(null)
   const [guess, setGuess] = useState('')
   const [feedback, setFeedback] = useState(null)
   const [diagnostic, setDiagnostic] = useState(null)
-
   const queuesRef = useRef(new Map())
 
   const [displayPrompt, setDisplayPrompt] = useState('')
   const [expectedAr, setExpectedAr] = useState('')
   const [expectedEn, setExpectedEn] = useState('')
-
   const [vocabAr, setVocabAr] = useState('')
   const [vocabEn, setVocabEn] = useState('')
   const [modifiers, setModifiers] = useState([])
@@ -80,10 +90,9 @@ export default function TranslateGame({ API_BASE = '' , direction = 'ar2en' }){
   async function loadQueue(key='default'){
     let q = queuesRef.current.get(key) || []
     if (q.length > 0) return q
-    const res = await fetch(`${API_BASE}/api/sentence-bundle`)
-    const data = await res.json()
+    const data = await fetchBundle(API_BASE, { direction, difficulty, count: 12 })
     const items = Array.isArray(data?.items) ? data.items.slice() : []
-    setDiagnostic({ count: items.length })
+    setDiagnostic({ count: items.length, method: data?.method || 'unknown' })
     queuesRef.current.set(key, items)
     return items
   }
@@ -102,7 +111,6 @@ export default function TranslateGame({ API_BASE = '' , direction = 'ar2en' }){
       queuesRef.current.set(key, q)
 
       const { display, expectedAr, expectedEn } = pickDisplayAndPair(item, direction)
-
       setDisplayPrompt(display || '')
       setExpectedAr(expectedAr || '')
       setExpectedEn(expectedEn || '')
@@ -126,12 +134,10 @@ export default function TranslateGame({ API_BASE = '' , direction = 'ar2en' }){
     try{
       const referenceAr = expectedAr
       const referenceEn = expectedEn
-
       if (!referenceAr && !referenceEn){
-        setFeedback({ verdict:'wrong', hint:'No reference pair available to grade. Check API fields.' })
+        setFeedback({ verdict:'wrong', hint:'No reference pair to grade.' })
         return
       }
-
       const res = await fetch(`${API_BASE}/api/grade`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -144,7 +150,7 @@ export default function TranslateGame({ API_BASE = '' , direction = 'ar2en' }){
     }
   }
 
-  useEffect(()=>{ showNext() }, [direction])
+  useEffect(()=>{ showNext() }, [direction, difficulty])
 
   return (
     <div className="translate-game">
@@ -179,18 +185,7 @@ export default function TranslateGame({ API_BASE = '' , direction = 'ar2en' }){
               <div><strong>English (expected):</strong> {expectedEn || '—'}</div>
               <div><strong>Arabic vocab:</strong> {vocabAr || '—'}</div>
               <div><strong>English gloss:</strong> {vocabEn || '—'}</div>
-            </div>
-          </details>
-
-          <details style={{marginTop:'0.5rem'}}>
-            <summary>Diagnostics</summary>
-            <div style={{opacity:0.85, fontSize:'0.9em', marginTop:'0.5rem'}}>
-              <div>Queue size: {(() => {
-                const key='default'; 
-                const q = queuesRef.current.get(key);
-                return Array.isArray(q) ? q.length : 0;
-              })()}</div>
-              <div>Bundle items: {diagnostic?.count ?? 'unknown'}</div>
+              {diagnostic?.method && <div><strong>API method:</strong> {diagnostic.method}</div>}
             </div>
           </details>
 
