@@ -1,211 +1,85 @@
+import React, { useEffect, useState } from 'react'
 
-import React, { useEffect, useRef, useState } from 'react'
+const API_BASE = '' // same origin
 
-const ARABIC_REGEX = /[\u0600-\u06FF]/
-const clean = v => (typeof v === 'string' ? v.trim() : '')
-
-async function fetchBundle(API_BASE, payload){
-  const url = `${API_BASE}/api/sentence-bundle`
-  try{
-    const r = await fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload || {})
-    })
-    if (r.status === 405) throw new Error('POST not allowed, try GET')
-    if (!r.ok) throw new Error(`POST failed: ${r.status}`)
-    return await r.json()
-  }catch(_){
-    const params = new URLSearchParams(Object.entries(payload || {})).toString()
-    const r2 = await fetch(params ? `${url}?${params}` : url) // GET fallback
-    if (!r2.ok) throw new Error(`GET failed: ${r2.status}`)
-    return await r2.json()
-  }
-}
-
-function pickDisplayAndPair(item, direction){
-  const f = {
-    prompt: clean(item?.prompt),
-    answer: clean(item?.answer),
-    ar: clean(item?.ar),
-    en: clean(item?.en),
-    vocabAr: clean(item?.vocabAr),
-    vocabEn: clean(item?.vocabEn),
-    arSentence: clean(item?.arSentence || item?.sentenceAr || item?.fullAr || item?.text_ar),
-    enSentence: clean(item?.enSentence || item?.sentenceEn || item?.fullEn || item?.text_en),
-    promptAr: clean(item?.promptAr),
-    promptEn: clean(item?.promptEn),
-    answerAr: clean(item?.answerAr),
-    answerEn: clean(item?.answerEn),
-  }
-
-  if (direction === 'ar2en'){
-    const display =
-      f.promptAr ||
-      f.arSentence ||
-      (ARABIC_REGEX.test(f.prompt) ? f.prompt : (ARABIC_REGEX.test(f.answer) ? f.answer : f.ar)) ||
-      ''
-    const expectedEn =
-      f.answerEn ||
-      f.enSentence ||
-      (!ARABIC_REGEX.test(f.answer) ? f.answer :
-        (!ARABIC_REGEX.test(f.prompt) ? f.prompt : (f.en || f.vocabEn))) ||
-      ''
-    const expectedAr = display
-    return { display, expectedAr, expectedEn }
-  } else {
-    const display =
-      f.promptEn ||
-      f.enSentence ||
-      (!ARABIC_REGEX.test(f.prompt) ? f.prompt : (!ARABIC_REGEX.test(f.answer) ? f.answer : f.en)) ||
-      ''
-    const expectedAr =
-      f.answerAr ||
-      f.arSentence ||
-      (ARABIC_REGEX.test(f.answer) ? f.answer :
-        (ARABIC_REGEX.test(f.prompt) ? f.prompt : (f.ar || f.vocabAr))) ||
-      ''
-    const expectedEn = display
-    return { display, expectedAr, expectedEn }
-  }
-}
-
-export default function TranslateGame({
-  API_BASE = '' ,
-  direction = 'ar2en',
-  difficulty = 'medium',
-  semesterId = 'S1',
-  unitId = 'unit_1',
-  chapterId = 'chapter_1'
-}){
+export default function TranslateGame(){
   const [loading, setLoading] = useState(false)
-  const [err, setErr] = useState(null)
+  const [error, setError] = useState('')
+  const [bundle, setBundle] = useState(null)
   const [guess, setGuess] = useState('')
-  const [feedback, setFeedback] = useState(null)
-  const [diagnostic, setDiagnostic] = useState(null)
-  const queuesRef = useRef(new Map())
+  const [difficulty, setDifficulty] = useState('medium')
+  const [direction, setDirection] = useState('ar2en')
+  const [scope, setScope] = useState({ semester:'S1', unit:'U1', chapter:'C1' })
+  const [result, setResult] = useState(null)
 
-  const [displayPrompt, setDisplayPrompt] = useState('')
-  const [expectedAr, setExpectedAr] = useState('')
-  const [expectedEn, setExpectedEn] = useState('')
-  const [vocabAr, setVocabAr] = useState('')
-  const [vocabEn, setVocabEn] = useState('')
-  const [modifiers, setModifiers] = useState([])
-
-  const placeholder = direction === 'ar2en' ? 'Type the English meaning…' : 'اكتب الجواب بالعربية…'
-
-  async function loadQueue(key='default'){
-    let q = queuesRef.current.get(key) || []
-    if (q.length > 0) return q
-    const data = await fetchBundle(API_BASE, {
-      direction, difficulty, count: 12, semesterId, unitId, chapterId
-    })
-    const items = Array.isArray(data?.items) ? data.items.slice() : []
-    setDiagnostic({ count: items.length, method: data?.method || 'unknown', source: data?.source || 'unknown' })
-    queuesRef.current.set(key, items)
-    return items
-  }
-
-  async function showNext(){
-    setLoading(true); setErr(null); setFeedback(null); setGuess('')
+  async function getBundle(){
+    setLoading(true); setError(''); setResult(null)
     try{
-      const key = 'default'
-      let q = await loadQueue(key)
-      if (!Array.isArray(q) || q.length === 0){
-        setLoading(false)
-        if (!err) setErr('No sentences returned from /api/sentence-bundle.')
-        return
-      }
-      const item = q.shift()
-      queuesRef.current.set(key, q)
-
-      const { display, expectedAr, expectedEn } = pickDisplayAndPair(item, direction)
-      setDisplayPrompt(display || '')
-      setExpectedAr(expectedAr || '')
-      setExpectedEn(expectedEn || '')
-
-      setVocabAr(item?.vocabAr || item?.ar || '')
-      setVocabEn(item?.vocabEn || item?.en || '')
-      const mods = Array.isArray(item?.modifiers) ? item.modifiers
-                  : Array.isArray(item?.tokens) ? item.tokens
-                  : Array.isArray(item?.tags) ? item.tags
-                  : []
-      setModifiers(mods)
-      setLoading(false)
-    }catch(e){
-      setErr('Failed to load sentences: ' + String(e))
-      setLoading(false)
-    }
-  }
-
-  async function check(){
-    setFeedback(null)
-    try{
-      const referenceAr = expectedAr
-      const referenceEn = expectedEn
-      if (!referenceAr && !referenceEn){
-        setFeedback({ verdict:'wrong', hint:'No reference pair to grade.' })
-        return
-      }
-      const res = await fetch(`${API_BASE}/api/grade`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ direction, guess, referenceAr, referenceEn })
+      const r = await fetch(`${API_BASE}/api/sentence-bundle`, {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ difficulty, direction, scope })
       })
-      const data = await res.json()
-      setFeedback(data || { verdict:'unknown' })
-    }catch(e){
-      setFeedback({ verdict:'wrong', hint:'Could not reach grader. ' + String(e) })
-    }
+      const j = await r.json()
+      if(!j.ok) throw new Error(j.error||'Failed to fetch bundle')
+      setBundle(j)
+    }catch(e){ setError(String(e.message||e)) }
+    finally{ setLoading(false) }
   }
 
-  useEffect(()=>{ showNext() }, [direction, difficulty, semesterId, unitId, chapterId])
+  async function grade(){
+    setLoading(true); setError(''); setResult(null)
+    try{
+      const r = await fetch(`${API_BASE}/api/grade`, {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ guess, reference: bundle?.answer, direction })
+      })
+      const j = await r.json()
+      if(!j.ok) throw new Error(j.error||'Failed to grade')
+      setResult(j)
+    }catch(e){ setError(String(e.message||e)) }
+    finally{ setLoading(false) }
+  }
+
+  useEffect(()=>{ getBundle() }, [])
 
   return (
-    <div className="translate-game">
-      {loading && <div>Loading…</div>}
-      {err && <div className="error">{String(err)}</div>}
+    <div className="card">
+      <div style={{ display:'grid', gap:8, gridTemplateColumns:'repeat(3, minmax(0,1fr))' }}>
+        <label>Difficulty
+          <select value={difficulty} onChange={e=>setDifficulty(e.target.value)}>
+            <option value="short">short</option>
+            <option value="medium">medium</option>
+            <option value="hard">hard</option>
+          </select>
+        </label>
+        <label>Direction
+          <select value={direction} onChange={e=>setDirection(e.target.value)}>
+            <option value="ar2en">ar → en</option>
+            <option value="en2ar">en → ar</option>
+          </select>
+        </label>
+        <button onClick={getBundle} disabled={loading}>New Sentence</button>
+      </div>
 
-      {!loading && !err && (
-        <>
-          <h2 className="prompt">{displayPrompt || '—'}</h2>
+      {error && <p style={{color:'crimson'}}>{error}</p>}
+      {bundle && (
+        <div style={{ marginTop:12 }}>
+          <div><strong>Prompt:</strong> {bundle.prompt}</div>
+          <div><small>direction: {bundle.direction} • difficulty: {bundle.difficulty}</small></div>
+        </div>
+      )}
 
-          {Array.isArray(modifiers) && modifiers.length > 0 && (
-            <div className="modifiers" style={{margin:'0.5rem 0', opacity:0.9, fontSize:'0.95em'}}>
-              <strong>Modifiers:</strong> {modifiers.join(' • ')}
-            </div>
-          )}
+      <div style={{ marginTop:12 }}>
+        <input value={guess} onChange={e=>setGuess(e.target.value)} placeholder="Your translation..." style={{ width:'100%' }} />
+        <button onClick={grade} disabled={loading || !bundle}>Check</button>
+      </div>
 
-          <div className="input-row">
-            <input
-              value={guess}
-              onChange={e=>setGuess(e.target.value)}
-              placeholder={placeholder}
-              onKeyDown={e=>{ if(e.key==='Enter'){ check() } }}
-            />
-            <button onClick={check}>Check</button>
-            <button onClick={showNext}>Skip</button>
-          </div>
-
-          <details style={{marginTop:'0.75rem'}}>
-            <summary>Reference</summary>
-            <div style={{opacity:0.9, fontSize:'0.95em', marginTop:'0.5rem'}}>
-              <div><strong>Arabic (expected):</strong> {expectedAr || '—'}</div>
-              <div><strong>English (expected):</strong> {expectedEn || '—'}</div>
-              <div><strong>Arabic vocab:</strong> {vocabAr || '—'}</div>
-              <div><strong>English gloss:</strong> {vocabEn || '—'}</div>
-              {diagnostic?.method && <div><strong>API method:</strong> {diagnostic.method}</div>}
-              {diagnostic?.source && <div><strong>API source:</strong> {diagnostic.source}</div>}
-            </div>
-          </details>
-
-          {feedback && (
-            <div className="feedback" style={{marginTop:'0.75rem'}}>
-              <div><strong>Verdict:</strong> {String(feedback?.verdict || '')}</div>
-              {feedback?.hint && <div><strong>Hint:</strong> {feedback.hint}</div>}
-            </div>
-          )}
-        </>
+      {result && (
+        <div style={{ marginTop:12 }}>
+          <div><strong>Correct answer:</strong> {bundle?.answer}</div>
+          <div><strong>Score:</strong> {result.score}</div>
+          <div><strong>Feedback:</strong> {result.feedback}</div>
+        </div>
       )}
     </div>
   )

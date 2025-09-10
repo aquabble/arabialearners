@@ -1,17 +1,10 @@
-// api/_utils.js
-export function json(res, status=200){
-  return new Response(JSON.stringify(res), {
-    status,
-    headers: { 'content-type': 'application/json' }
-  })
+export function corsHeaders(){
+  return {
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Methods': 'GET,POST,OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization'
+  }
 }
-export const ok = (res)=>json(res, 200)
-export const bad = (res)=>json(res, 400)
-export const oops = (res)=>json(res, 500)
-export const svc = (res)=>json(res, 503)
-
-export function env(key){
-  try{ return process.env[key] || '' }catch{ return '' }
+export function jsonResponse(obj, status=200){
+  return new Response(JSON.stringify(obj), { status, headers: { 'Content-Type':'application/json', ...corsHeaders() } })
 }
-
-export function safe(v){ return String(v == null ? '' : v).trim() }

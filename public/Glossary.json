@@ -6,11 +6,11 @@
       "name": "Semester 1",
       "units": [
         {
-          "id": "Unit 1",
+          "id": "U1",
           "name": "Unit 1",
           "chapters": [
             {
-              "id": "Chapter 1",
+              "id": "C1",
               "name": "Chapter 1",
               "vocab": [
                 {
