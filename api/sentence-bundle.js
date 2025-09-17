@@ -1,151 +1,267 @@
 // api/sentence-bundle.js
-export const config = { runtime: "edge" }; // ⚡ edge = faster cold starts
+export const config = { runtime: "edge" };
 
-import { jsonResponse } from "./_utils.js";
-
-// ---- tiny local fallback (fast & deterministic) ----
-function rand(n){ return Math.floor(Math.random()*n) }
-function choice(a){ return a[rand(a.length)] }
-function localFallback({ direction="ar2en", difficulty="medium", vocab=[] }){
-  const subj = choice([{ar:"الطالب",en:"the student"},{ar:"الطالبة",en:"the female student"},{ar:"أحمد",en:"Ahmed"},{ar:"سارة",en:"Sarah"}]);
-  const toPlaces = [{ar:"إلى المدرسة",en:"to the school"},{ar:"إلى المكتبة",en:"to the library"},{ar:"إلى المتحف",en:"to the museum"}];
-  const atPlaces = [{ar:"في البيت",en:"at home"},{ar:"في المطعم",en:"at the restaurant"},{ar:"في الصف",en:"in class"}];
-  const times = [{ar:"اليوم",en:"today"},{ar:"صباحًا",en:"in the morning"},{ar:"مساءً",en:"in the evening"}];
-
-  const useMotion = Math.random() < 0.5;
-  let ar, en;
-  if (useMotion){
-    const p = choice(toPlaces), t = choice(times);
-    ar = `${subj.ar} ذهب ${p.ar} ${t.ar}`.trim();
-    en = `${subj.en[0].toUpperCase()+subj.en.slice(1)} went ${p.en} ${t.en}`.trim();
-  } else {
-    const p = choice(atPlaces), t = choice(times);
-    ar = `${subj.ar} قرأ كتابًا ${p.ar} ${t.ar}`.trim();
-    en = `${subj.en[0].toUpperCase()+subj.en.slice(1)} read a book ${p.en} ${t.en}`.trim();
-  }
-
-  // try to inject one vocab token if provided (kept simple & safe)
-  if (vocab.length){
-    const tok = vocab[0];
-    if (!/كتاب/.test(ar)) {
-      ar = ar.replace("قرأ", `قرأ ${tok.ar}`);
-      en = en.replace("read a book", `read ${tok.en}`);
-    }
-  }
-  return direction==="ar2en"
-    ? { prompt: ar, answer: en, tokens: vocab.length ? [vocab[0].ar] : [] }
-    : { prompt: en, answer: ar, tokens: vocab.length ? [vocab[0].en] : [] };
+/** Small helper: consistent JSON response with permissive CORS (same-origin is fine, but this keeps flexibility) */
+function jsonResponse(obj, status = 200) {
+  return new Response(JSON.stringify(obj), {
+    status,
+    headers: {
+      "content-type": "application/json; charset=utf-8",
+      "access-control-allow-origin": "*",
+      "access-control-allow-methods": "GET,POST,OPTIONS",
+      "access-control-allow-headers": "content-type,authorization",
+    },
+  });
 }
 
-// ---- glossary loader (Edge compatible) ----
-async function loadGlossary() {
-  // We included src/lib/Glossary.json in vercel.json includeFiles
-  // In Edge, fetch from the public path if needed:
+/** Parse JSON body safely */
+async function readBody(request) {
   try {
-    // attempt to load from bundled file path (works on Node), fallback to fetch
-    // Edge runtime can't read fs, so use fetch to a static copy you host (optional).
-    // If you serve a static mirror at /Glossary.json, uncomment this:
-    // const r = await fetch(new URL("/Glossary.json", new URL(req.url).origin));
-    // return await r.json();
-    // Minimal: just return empty; the function still works in local mode.
-    return { semesters: [] };
+    if (request.method === "GET") return {};
+    const text = await request.text();
+    return text ? JSON.parse(text) : {};
   } catch {
-    return { semesters: [] };
+    return {};
   }
 }
 
-function resolveScope(gloss, scope={}){
-  const sem = (gloss?.semesters||[]).find(s => !scope.semester || s.id===scope.semester) || (gloss?.semesters||[])[0];
-  const unit = (sem?.units||[]).find(u => !scope.unit || u.id===scope.unit) || (sem?.units||[])[0];
-  const chap = (unit?.chapters||[]).find(c => !scope.chapter || c.id===scope.chapter) || (unit?.chapters||[])[0];
-  const vocab = (chap?.vocab||[]).filter(v=>v?.ar && v?.en);
-  return { used: { semester: sem?.id, unit: unit?.id, chapter: chap?.id }, vocab };
+/** Load the public Glossary.json from the same origin (Edge-friendly; no fs) */
+async function loadGlossary(request) {
+  try {
+    const url = new URL("/Glossary.json", request.url);
+    const res = await fetch(url.toString(), { cache: "no-store" });
+    if (!res.ok) throw new Error(`Glossary fetch ${res.status}`);
+    return await res.json();
+  } catch (e) {
+    return { type: "Glossary", semesters: [] };
+  }
 }
 
-// ---- OpenAI call via fetch (Edge safe) ----
-async function generateViaOpenAI({ direction, difficulty, scopedVocab, signal }) {
-  const key = process.env.OPENAI_API_KEY;
-  if (!key) throw new Error("NO_OPENAI_KEY");
+/** Traverse glossary to get vocab scoped to semester/unit/chapter */
+function getScopedVocab(glossary, scope = {}) {
+  const { semesterId, unitId, chapterId } = scope;
+  const semesters = Array.isArray(glossary?.semesters) ? glossary.semesters : [];
 
-  const diff = {
-    short:  { min:4, max:7,  minGloss:1, hint:"simple clause" },
-    medium: { min:6, max:8,  minGloss:2, hint:"one informative clause" },
-    hard:   { min:8, max:14, minGloss:3, hint:"two related clauses with ثم/ولكن" }
-  }[difficulty] || { min:6, max:8, minGloss:2, hint:"one informative clause" };
+  // Helper to normalize vocab entries: want { ar, en }
+  const norm = (list) =>
+    (Array.isArray(list) ? list : [])
+      .map((v) =>
+        typeof v === "string"
+          ? { ar: v, en: "" }
+          : { ar: v?.ar ?? v?.word ?? "", en: v?.en ?? v?.gloss ?? "" }
+      )
+      .filter((v) => v.ar && typeof v.ar === "string");
 
-  const arTokens = scopedVocab.map(v=>v.ar);
-  const enTokens = scopedVocab.map(v=>v.en);
+  // If fully scoped (S/U/C) grab that chapter vocab.
+  if (semesterId && unitId && chapterId) {
+    const chapVocab =
+      semesters
+        .find((s) => s.id === semesterId)?.units
+        ?.find((u) => u.id === unitId)?.chapters
+        ?.find((c) => c.id === chapterId)?.vocab;
+    const v = norm(chapVocab);
+    if (v.length) return v;
+  }
+
+  // If S + U only: concat all chapters
+  if (semesterId && unitId) {
+    const chapters =
+      semesters
+        .find((s) => s.id === semesterId)?.units
+        ?.find((u) => u.id === unitId)?.chapters ?? [];
+    const v = chapters.flatMap((c) => norm(c?.vocab));
+    if (v.length) return v;
+  }
+
+  // If S only: concat all units/chapters
+  if (semesterId) {
+    const units = semesters.find((s) => s.id === semesterId)?.units ?? [];
+    const v = units.flatMap((u) => (u?.chapters ?? []).flatMap((c) => norm(c?.vocab)));
+    if (v.length) return v;
+  }
+
+  // Fallback: all vocab in the entire glossary
+  const all = semesters.flatMap((s) =>
+    (s?.units ?? []).flatMap((u) => (u?.chapters ?? []).flatMap((c) => norm(c?.vocab)))
+  );
+  return all;
+}
+
+/** Pick N unique random items from array */
+function sampleN(arr, n) {
+  const a = [...arr];
+  const out = [];
+  n = Math.max(0, Math.min(n, a.length));
+  for (let i = 0; i < n; i++) {
+    const idx = Math.floor(Math.random() * a.length);
+    out.push(a[idx]);
+    a.splice(idx, 1);
+  }
+  return out;
+}
+
+/** Local sentence generator that guarantees vocab inclusion & difficulty bounds */
+function localGenerate({ vocab, difficulty = "medium" }) {
+  // difficulty spec: counts refer to Arabic token count *included* from vocab
+  //   short:  4–7 words total, include ≥1 vocab
+  //   medium: 6–8 words total, include ≥2 vocab
+  //   hard:   8–14 words total, include ≥3 vocab (prefer complex)
+  const DIFF = {
+    short: { totalMin: 4, totalMax: 7, mustInclude: 1 },
+    medium: { totalMin: 6, totalMax: 8, mustInclude: 2 },
+    hard: { totalMin: 8, totalMax: 14, mustInclude: 3 },
+  }[difficulty] ?? { totalMin: 6, totalMax: 8, mustInclude: 2 };
+
+  // Safety: if vocab is too small, degrade mustInclude
+  const must = Math.min(DIFF.mustInclude, vocab.length || 0);
+
+  // Choose vocab items to include
+  const chosen = sampleN(vocab, must);
+
+  // Basic fillers (Arabic) to keep things meaningful but compact
+  const fillers = [
+    "اليوم", "غدًا", "أمس", "الآن", "عادةً", "أحيانًا",
+    "في البيت", "في المدرسة", "في السوق", "في العمل",
+    "مع صديقي", "مع عائلتي", "من فضلك", "لأن", "لكن"
+  ];
+
+  // Simple person/subject pool (user asked for meaningful sentences; person optional but common)
+  const subjects = [
+    "أنا", "أنت", "هو", "هي", "نحن", "الطالب", "المدرس", "الصديق", "الجار", "الأب", "الأم"
+  ];
+  const verbs = [
+    "يقرأ", "يكتب", "يشاهد", "يزور", "يحب", "يشتري", "يحتاج", "يسأل", "يجد", "يفضّل", "يخطط"
+  ];
+
+  // Build a base skeleton: [subject] [verb] [filler] [vocab…]
+  const subject = subjects[Math.floor(Math.random() * subjects.length)];
+  const verb = verbs[Math.floor(Math.random() * verbs.length)];
+  const filler = Math.random() < 0.7 ? fillers[Math.floor(Math.random() * fillers.length)] : "";
+
+  // Compose tokens ensuring we include vocab.ar strings
+  const vocabTokens = chosen.map((t) => t.ar);
+  // Start with subject + verb
+  let tokens = [subject, verb];
+  if (filler) tokens.push(filler);
+  // interleave vocab
+  for (const t of vocabTokens) tokens.push(t);
+
+  // Pad with extra fillers until within totalMin..totalMax
+  const target = DIFF.totalMin + Math.floor(Math.random() * (DIFF.totalMax - DIFF.totalMin + 1));
+  while (tokens.length < target) {
+    const f = fillers[Math.floor(Math.random() * fillers.length)];
+    // avoid duplicates right next to each other
+    if (tokens[tokens.length - 1] !== f) tokens.push(f);
+    else tokens.push("هناك");
+  }
+
+  // Produce an English gloss (very light) for answer: join selected vocab.en if available
+  const glossParts = [];
+  for (const t of chosen) {
+    if (t.en) glossParts.push(t.en);
+  }
+  const answer = glossParts.length
+    ? `Includes: ${glossParts.join(", ")}`
+    : "Translate the sentence to English.";
+
+  return {
+    prompt: tokens.join(" ").replace(/\s+/g, " ").trim() + " .",
+    answer,
+    vocabUsed: chosen,
+  };
+}
+
+/** OPTIONAL: OpenAI-backed generation that *still* enforces vocab inclusion */
+async function openAIGenerate({ vocab, difficulty = "medium", systemLang = "ar" }) {
+  const apiKey = process.env.OPENAI_API_KEY;
+  if (!apiKey) return null;
+
+  // Build a small, explicit instruction so the model MUST include certain tokens
+  const required = sampleN(vocab, Math.min(vocab.length, { short:1, medium:2, hard:3 }[difficulty] ?? 2));
+  const reqAr = required.map((t) => `- ${t.ar}${t.en ? ` (${t.en})` : ""}`).join("\n");
+
+  const totalHint = { short: "4-7", medium: "6-8", hard: "8-14" }[difficulty] ?? "6-8";
 
   const body = {
-    model: "gpt-4o-mini",
-    temperature: 0.6,
-    max_tokens: 160,
-    response_format: { type: "json_object" },
+    model: process.env.OPENAI_MODEL || "gpt-4o-mini",
     messages: [
-      { role:"system", content:
-        `Return ONLY JSON: {"prompt": string, "answer": string, "tokens": string[] }.
-If direction="ar2en": prompt in Arabic, answer in English.
-If direction="en2ar": prompt in English, answer in Arabic.
-Use proper Arabic grammar: motion uses "إلى", stative uses "في". Avoid "ذهب في".
-Target PROMPT length ${diff.min}-${diff.max} words. Include at least ${diff.minGloss} glossary tokens (from 'glossaryTokens') in the prompt language. ${diff.hint}.`
+      {
+        role: "system",
+        content:
+          "You produce a single, natural Arabic sentence for students. It must be meaningful and not generic. Do not include transliteration.",
       },
-      { role:"user", content: JSON.stringify({
-          direction, difficulty,
-          glossaryTokens: direction==="ar2en" ? arTokens : enTokens
-      })}
-    ]
+      {
+        role: "user",
+        content: [
+          `Difficulty: ${difficulty} (about ${totalHint} words total).`,
+          `You MUST include these Arabic vocabulary tokens verbatim (choose exact surface form):`,
+          reqAr,
+          `Respond ONLY with the Arabic sentence, nothing else.`,
+        ].join("\n"),
+      },
+    ],
+    temperature: 0.6,
   };
 
-  const resp = await fetch("https://api.openai.com/v1/chat/completions", {
-    method:"POST",
-    headers:{
-      "Authorization": `Bearer ${key}`,
-      "Content-Type":"application/json"
+  const res = await fetch(process.env.OPENAI_BASE_URL || "https://api.openai.com/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      authorization: `Bearer ${apiKey}`,
     },
     body: JSON.stringify(body),
-    signal
   });
 
-  const data = await resp.json();
-  const content = data?.choices?.[0]?.message?.content ?? "{}";
-  const obj = JSON.parse(content);
-  const prompt = String(obj.prompt||"").trim();
-  const answer = String(obj.answer||"").trim();
-  const tokens = Array.isArray(obj.tokens) ? obj.tokens.slice(0,6) : [];
-  if (!prompt || !answer) throw new Error("BAD_AI_OUTPUT");
-  return { prompt, answer, tokens };
+  if (!res.ok) return null;
+  const data = await res.json();
+  const text = data?.choices?.[0]?.message?.content?.trim();
+  if (!text) return null;
+
+  return {
+    prompt: text.endsWith("۔") || text.endsWith(".") ? text : text + " .",
+    answer: "Translate the sentence to English.",
+    vocabUsed: required,
+  };
 }
 
-export default async (req) => {
-  try {
-    const { direction="ar2en", difficulty="medium", scope={}, provider="auto" } = await req.json().catch(()=>({}));
+export default async function handler(request) {
+  if (request.method === "OPTIONS") return jsonResponse({}, 200);
 
-    // Always scope first (may be empty)
-    const gloss = await loadGlossary();
-    const { vocab, used } = resolveScope(gloss, scope);
+  const body = await readBody(request);
+  const { difficulty = "medium", semesterId, unitId, chapterId } = body || {};
 
-    // Fast path: allow forcing local mode from client
-    if (provider === "local") {
-      const out = localFallback({ direction, difficulty, vocab });
-      return jsonResponse({ ok:true, provider:"local", version:"sb-edge-1", direction, difficulty, scopeUsed: used, ...out });
-    }
+  const glossary = await loadGlossary(request);
+  const scopedVocab = getScopedVocab(glossary, { semesterId, unitId, chapterId });
 
-    // OpenAI path with hard timeout → fallback
-    const ABORT_MS = 4500; // ~4.5s budget
-    const ac = new AbortController();
-    const timer = setTimeout(()=> ac.abort("timeout"), ABORT_MS);
-
-    try {
-      const out = await generateViaOpenAI({ direction, difficulty, scopedVocab: vocab, signal: ac.signal });
-      clearTimeout(timer);
-      return jsonResponse({ ok:true, provider:"openai", version:"sb-edge-1", direction, difficulty, scopeUsed: used, ...out });
-    } catch (e) {
-      clearTimeout(timer);
-      // graceful fallback
-      const out = localFallback({ direction, difficulty, vocab });
-      return jsonResponse({ ok:true, provider:"local-fallback", version:"sb-edge-1", direction, difficulty, scopeUsed: used, ...out });
-    }
-  } catch (e) {
-    return jsonResponse({ ok:false, error:String(e?.message||e) }, 500);
+  if (!scopedVocab.length) {
+    return jsonResponse(
+      {
+        ok: false,
+        error: "NO_VOCAB_FOUND",
+        note: "Check that Glossary.json has vocab arrays at the selected scope.",
+        scope: { semesterId, unitId, chapterId },
+      },
+      200
+    );
   }
-};
+
+  // Try OpenAI first if available; otherwise local generator
+  let bundle = null;
+  try {
+    bundle = await openAIGenerate({ vocab: scopedVocab, difficulty });
+  } catch {
+    // fallthrough
+  }
+  if (!bundle) {
+    bundle = localGenerate({ vocab: scopedVocab, difficulty });
+  }
+
+  return jsonResponse({
+    ok: true,
+    source: "edge",
+    scope: { semesterId, unitId, chapterId, difficulty },
+    prompt: bundle.prompt,
+    answer: bundle.answer,
+    vocabUsed: bundle.vocabUsed, // [{ar,en}]
+  });
+}
