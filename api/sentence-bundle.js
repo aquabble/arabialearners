@@ -17,7 +17,7 @@ function jsonResponse(obj, status = 200) {
 // Arabic normalization helpers
 const __AL_HARAKAT = /[\u064B-\u065F\u0670\u06D6-\u06ED]/g;
 const __alNormAr = (s) => String(s||'')
-  .normalize('NFC').replace(HARAKAT,'')
+  .normalize('NFC').replace(__AL_HARAKAT,'')
   .replace(/[\u061B\u061F\u060C]/g,' ')
   .replace(/[\.\!\?\,\;:]+/g,' ')
   .replace(/\s+/g,' ')
@@ -297,7 +297,7 @@ export default async function handler(request) {
 }
 
 // Arabic normalization helpers
-  .normalize('NFC').replace(HARAKAT,'')
+  .normalize('NFC').replace(__AL_HARAKAT,'')
   .replace(/[\u061B\u061F\u060C]/g,' ')
   .replace(/[\.\!\?\,\;:]+/g,' ')
   .replace(/\s+/g,' ')
