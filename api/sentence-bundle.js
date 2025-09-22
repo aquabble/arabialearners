@@ -15,21 +15,21 @@ function jsonResponse(obj, status = 200) {
 }
 
 // Arabic normalization helpers
-const HARAKAT = /[\u064B-\u065F\u0670\u06D6-\u06ED]/g;
-const normAr = (s) => String(s||'')
+const __AL_HARAKAT = /[\u064B-\u065F\u0670\u06D6-\u06ED]/g;
+const __alNormAr = (s) => String(s||'')
   .normalize('NFC').replace(HARAKAT,'')
   .replace(/[\u061B\u061F\u060C]/g,' ')
   .replace(/[\.\!\?\,\;:]+/g,' ')
   .replace(/\s+/g,' ')
   .trim()
   .toLowerCase();
-const toks = (s) => normAr(s).split(/\s+/).filter(Boolean);
+const __alToks = (s) => __alNormAr(s).split(/\s+/).filter(Boolean);
 
-function countVocabInclusion(text, vocab){
-  const t = normAr(text);
+function __alCountVocabInclusion(text, vocab){
+  const t = __alNormAr(text);
   let count = 0;
   for(const v of (vocab||[])){
-    const needle = normAr(v.ar||v.word||'');
+    const needle = __alNormAr(v.ar||v.word||'');
     if (needle && (t.includes(' '+needle+' ') || t.endsWith(' '+needle) || t.startsWith(needle+' ') || t === needle)) {
       count++;
     }
@@ -242,8 +242,8 @@ async function openAIGenerate({ vocab, difficulty = "medium", systemLang = "ar" 
 
   // Validate difficulty & vocab inclusion; if not satisfied, let caller fallback to local generator
   const di = { short:{min:4,max:7,must:1}, medium:{min:6,max:8,must:2}, hard:{min:8,max:14,must:3} }[difficulty] || {min:6,max:8,must:2};
-  const tokenCount = toks(text).length;
-  const inclusion = countVocabInclusion(text, required);
+  const tokenCount = __alToks(text).length;
+  const inclusion = __alCountVocabInclusion(text, required);
   if (tokenCount < di.min || tokenCount > di.max || inclusion < di.must) {
     return null;
   }
@@ -297,21 +297,17 @@ export default async function handler(request) {
 }
 
 // Arabic normalization helpers
-const HARAKAT = /[\u064B-\u065F\u0670\u06D6-\u06ED]/g;
-const normAr = (s) => String(s||'')
   .normalize('NFC').replace(HARAKAT,'')
   .replace(/[\u061B\u061F\u060C]/g,' ')
   .replace(/[\.\!\?\,\;:]+/g,' ')
   .replace(/\s+/g,' ')
   .trim()
   .toLowerCase();
-const toks = (s) => normAr(s).split(/\s+/).filter(Boolean);
 
-function countVocabInclusion(text, vocab){
-  const t = normAr(text);
+  const t = __alNormAr(text);
   let count = 0;
   for(const v of (vocab||[])){
-    const needle = normAr(v.ar||v.word||'');
+    const needle = __alNormAr(v.ar||v.word||'');
     if (needle && (t.includes(' '+needle+' ') || t.endsWith(' '+needle) || t.startsWith(needle+' ') || t === needle)) {
       count++;
     }
