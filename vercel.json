@@ -2,10 +2,7 @@
   "functions": {
     "api/**/*.js": {
       "includeFiles": "src/lib/Glossary.json",
-      "excludeFiles": [
-        "api/**/*.{patch.js,bak,orig,backup}",
-        "api/**/.*"
-      ]
+      "excludeFiles": "api/**/*.{patch.js,bak,orig,backup}"
     }
   },
   "headers": [
