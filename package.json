@@ -11,7 +11,9 @@
     "build": "vite build",
     "preview": "vite preview",
     "lint": "eslint . --ext .js,.jsx || true",
-    "test": "vitest run"
+    "test": "vitest run",
+    "prebuild": "node scripts/sync-glossary.mjs",
+    "postinstall": "node scripts/sync-glossary.mjs"
   },
   "dependencies": {
     "openai": "^4.56.0",

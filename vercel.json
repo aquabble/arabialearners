@@ -1,14 +1,21 @@
 {
   "functions": {
     "api/**/*.js": {
-      "includeFiles": "src/lib/Glossary.json"
+      "includeFiles": "src/lib/Glossary.json",
+      "excludeFiles": [
+        "api/**/*.{patch.js,bak,orig,backup}",
+        "api/**/.*"
+      ]
     }
   },
   "headers": [
     {
       "source": "/(.*)",
       "headers": [
-        { "key": "Cross-Origin-Opener-Policy", "value": "same-origin-allow-popups" }
+        {
+          "key": "Cross-Origin-Opener-Policy",
+          "value": "same-origin-allow-popups"
+        }
       ]
     }
   ]
